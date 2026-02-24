@@ -46,15 +46,17 @@ func GetContentHandler(c fiber.Ctx) error {
 	if isImage(strings.ToLower(ext)) && isImageFileSize {
 		imageType := c.Query("type")
 		size := c.Query("size")
-		var static = imageType == "webp"
-		var parsedSize = 0
-		if size != "" {
-			parsedSize, err = strconv.Atoi(size)
-			if err != nil {
-				parsedSize = 0
+		if size != "" || imageType != "" {
+			var static = imageType == "webp"
+			var parsedSize = 0
+			if size != "" {
+				parsedSize, err = strconv.Atoi(size)
+				if err != nil {
+					parsedSize = 0
+				}
 			}
+			println("Processing Image", GenerateImageProxyURL(ImageProxyOptions{URL: finalPath, IsLocalURL: true, Static: static, Size: parsedSize}))
 		}
-		println("Processing Image", GenerateImageProxyURL(ImageProxyOptions{URL: finalPath, IsLocalURL: true, Static: static, Size: parsedSize}))
 	}
 
 	println("Serving file:", finalPath)
@@ -126,7 +128,7 @@ func GenerateImageProxyURL(opts ImageProxyOptions) string {
 		parts = append(parts, size)
 	}
 
-	parts = append(parts, encodedPath)
+	parts = append(parts, "plain/"+encodedPath)
 
 	return BASE_PROXY + strings.Join(parts, "/") + "@webp"
 
