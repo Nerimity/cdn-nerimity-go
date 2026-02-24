@@ -108,23 +108,28 @@ type ImageProxyOptions struct {
 const BASE_PROXY = "http://localhost:8888/pr:sharp/"
 
 func GenerateImageProxyURL(opts ImageProxyOptions) string {
+	var parts []string
 
 	var path = opts.URL
 	if opts.IsLocalURL {
 		path = "local:///" + path
 	}
 	var encodedPath = encodeURIComponent(path)
+	parts = append(parts, encodedPath)
 
-	var size = ""
-	if opts.Size != 0 {
-		size = fmt.Sprintf("rs:fit:%d:%d", opts.Size, opts.Size)
-	}
-	var static = ""
 	if opts.Static {
-		static = "page:0"
+		var static = "page:0"
+		parts = append(parts, static)
 	}
 
-	return fmt.Sprintf("%s%s%s/plain/%s@webp", BASE_PROXY, static, size, encodedPath)
+	if opts.Size != 0 {
+		var size = fmt.Sprintf("rs:fit:%d:%d", opts.Size, opts.Size)
+		parts = append(parts, size)
+	}
+
+	parts = append(parts, encodedPath)
+
+	return BASE_PROXY + strings.Join(parts, "/") + "@webp"
 
 }
 
