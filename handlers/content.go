@@ -115,7 +115,6 @@ func GenerateImageProxyURL(opts ImageProxyOptions) string {
 		path = "local:///" + path
 	}
 	var encodedPath = encodeURIComponent(path)
-	parts = append(parts, encodedPath)
 
 	if opts.Static {
 		var static = "page:0"
