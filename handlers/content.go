@@ -111,7 +111,7 @@ func GenerateImageProxyURL(opts ImageProxyOptions) string {
 
 	var path = opts.URL
 	if opts.IsLocalURL {
-		path = "plain/local:///" + path
+		path = "local:///" + path
 	}
 	var encodedPath = encodeURIComponent(path)
 
@@ -124,7 +124,7 @@ func GenerateImageProxyURL(opts ImageProxyOptions) string {
 		static = "page:0"
 	}
 
-	return fmt.Sprintf("%s%s%s/%s@webp", BASE_PROXY, static, size, encodedPath)
+	return fmt.Sprintf("%s%s%s/plain/%s@webp", BASE_PROXY, static, size, encodedPath)
 
 }
 
