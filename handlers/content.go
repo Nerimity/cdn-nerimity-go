@@ -105,7 +105,7 @@ type ImageProxyOptions struct {
 	Size       int
 }
 
-const BASE_PROXY = "http://localhost:8888/pr:sharp/plain/"
+const BASE_PROXY = "http://localhost:8888/pr:sharp/"
 
 func GenerateImageProxyURL(opts ImageProxyOptions) string {
 
