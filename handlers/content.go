@@ -4,7 +4,6 @@ import (
 	"cdn_nerimity_go/config"
 	"cdn_nerimity_go/security"
 	"cdn_nerimity_go/utils"
-	"log"
 	"net/url"
 	"os"
 	"path"
@@ -32,7 +31,7 @@ func (h *ContentHandler) GetContent(c fiber.Ctx) error {
 		var encryptedPath = strings.Split(subPath, ".")[0]
 		decrypted, err := security.Decrypt(encryptedPath, h.Env.ExternalEmbedSecret)
 		if err != nil {
-			log.Fatal(err)
+			return c.Status(fiber.StatusForbidden).End()
 		}
 		path = "/" + decrypted
 	}
