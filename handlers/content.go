@@ -1,7 +1,7 @@
 package handlers
 
 import (
-	"fmt"
+	"cdn_nerimity_go/utils"
 	"net/url"
 	"os"
 	"path"
@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/gofiber/fiber/v3"
+	"github.com/gofiber/fiber/v3/middleware/proxy"
 )
 
 func GetContentHandler(c fiber.Ctx) error {
@@ -31,19 +32,22 @@ func GetContentHandler(c fiber.Ctx) error {
 	absBase, _ := filepath.Abs(baseDir)
 	absFinal, err := filepath.Abs(finalPath)
 	if err != nil || !strings.HasPrefix(absFinal, absBase) {
-		return c.Status(fiber.StatusForbidden).SendString("Access denied")
+		return c.Status(fiber.StatusForbidden).End()
 	}
 
 	ext := filepath.Ext(finalPath)
 	// Check file size
 	info, err := os.Stat(finalPath)
 	if err != nil {
-		return c.Status(fiber.StatusNotFound).SendString("File not found")
+		return c.Status(fiber.StatusNotFound).End()
+	}
+	if info.IsDir() {
+		return c.Status(fiber.StatusNotFound).End()
 	}
 	fileSizeMB := info.Size() / (1024 * 1024) // size in MB
 	var isImageFileSize = fileSizeMB <= 20
 
-	if isImage(strings.ToLower(ext)) && isImageFileSize {
+	if utils.IsImage(strings.ToLower(ext)) && isImageFileSize {
 		imageType := c.Query("type")
 		size := c.Query("size")
 		if size != "" || imageType != "" {
@@ -55,7 +59,10 @@ func GetContentHandler(c fiber.Ctx) error {
 					parsedSize = 0
 				}
 			}
-			println("Processing Image", GenerateImageProxyURL(ImageProxyOptions{URL: finalPath, IsLocalURL: true, Static: static, Size: parsedSize}))
+			var url = utils.GenerateImageProxyURL(utils.ImageProxyOptions{URL: finalPath, IsLocalURL: true, Static: static, Size: parsedSize})
+			println("Processing Image", url)
+
+			return proxy.Do(c, url)
 		}
 	}
 
@@ -67,75 +74,17 @@ func ServeFile(c fiber.Ctx, finalPath string) error {
 	ext := strings.ToLower(filepath.Ext(finalPath))
 
 	switch {
-	case isOtherMedia(ext):
+	case utils.IsOtherMedia(ext):
 		// TODO: make it so video doesn't load when directly accessing the url, but only when its embedded in the app.
 		return c.SendFile(finalPath, fiber.SendFile{
 			ByteRange: true,
 			MaxAge:    3600, // 1 Hour
 		})
-	case isImage(ext):
+	case utils.IsImage(ext):
 		return c.SendFile(finalPath, fiber.SendFile{
 			MaxAge: 43200, // 12 Hours
 		})
 	default:
 		return c.Download(finalPath)
 	}
-}
-
-func isOtherMedia(ext string) bool {
-	switch ext {
-	case ".mp4", ".webm", ".ogg", ".mp3", ".wav":
-		return true
-	default:
-		return false
-	}
-}
-
-func isImage(ext string) bool {
-	switch ext {
-	case ".webp", ".png", ".jpg", ".jpeg", ".gif":
-		return true
-	default:
-		return false
-	}
-}
-
-type ImageProxyOptions struct {
-	URL        string
-	IsLocalURL bool
-	Static     bool
-	Size       int
-}
-
-const BASE_PROXY = "http://localhost:8888/pr:sharp/"
-
-func GenerateImageProxyURL(opts ImageProxyOptions) string {
-	var parts []string
-
-	var path = opts.URL
-	if opts.IsLocalURL {
-		path = "local:///" + path
-	}
-	var encodedPath = encodeURIComponent(path)
-
-	if opts.Static {
-		var static = "page:0"
-		parts = append(parts, static)
-	}
-
-	if opts.Size != 0 {
-		var size = fmt.Sprintf("rs:fit:%d:%d", opts.Size, opts.Size)
-		parts = append(parts, size)
-	}
-
-	parts = append(parts, "plain/"+encodedPath)
-
-	return BASE_PROXY + strings.Join(parts, "/") + "@webp"
-
-}
-
-func encodeURIComponent(str string) string {
-	escaped := url.QueryEscape(str)
-	// replace + with %20 to match JavaScript's encodeURIComponent
-	return strings.ReplaceAll(escaped, "+", "%20")
 }

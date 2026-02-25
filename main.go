@@ -15,6 +15,6 @@ func main() {
 
 	app.Get("/avatars/*", handlers.GetContentHandler)
 
-	app.Listen("127.0.0.1:3000")
+	app.Listen(":3000")
 
 }
