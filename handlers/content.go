@@ -1,7 +1,10 @@
 package handlers
 
 import (
+	"cdn_nerimity_go/config"
+	"cdn_nerimity_go/security"
 	"cdn_nerimity_go/utils"
+	"log"
 	"net/url"
 	"os"
 	"path"
@@ -13,8 +16,28 @@ import (
 	"github.com/gofiber/fiber/v3/middleware/proxy"
 )
 
-func GetContentHandler(c fiber.Ctx) error {
-	finalPath, err := resolveSafePath(c.Path())
+type ContentHandler struct {
+	Env *config.Config
+}
+
+func NewContentHandler(env *config.Config) *ContentHandler {
+	return &ContentHandler{Env: env}
+}
+
+func (h *ContentHandler) GetContent(c fiber.Ctx) error {
+	var path = c.Path()
+
+	if strings.HasPrefix(path, "/external-embed") {
+		var subPath = strings.Join(strings.Split(path, "/")[2:], "/")
+		var encryptedPath = strings.Split(subPath, ".")[0]
+		decrypted, err := security.Decrypt(encryptedPath, h.Env.ExternalEmbedSecret)
+		if err != nil {
+			log.Fatal(err)
+		}
+		path = "/" + decrypted
+	}
+
+	finalPath, err := resolveSafePath(path)
 	if err != nil {
 		return c.Status(fiber.StatusForbidden).End()
 	}
@@ -22,6 +45,7 @@ func GetContentHandler(c fiber.Ctx) error {
 	// Check file size
 	info, err := os.Stat(finalPath)
 	if err != nil || info.IsDir() {
+
 		return c.Status(fiber.StatusNotFound).End()
 	}
 
