@@ -2,33 +2,42 @@ package handlers
 
 import (
 	"cdn_nerimity_go/config"
+	"cdn_nerimity_go/utils"
 	"io"
 	"os"
+	"path/filepath"
+	"strconv"
 
 	"github.com/gofiber/fiber/v3"
 )
 
 type UploadHandler struct {
-	Env *config.Config
+	Env   *config.Config
+	Flake *utils.Flake
 }
 
-func NewUploadHandler(env *config.Config) *UploadHandler {
-	return &UploadHandler{Env: env}
+func NewUploadHandler(context *UploadHandler) *UploadHandler {
+	return context
 }
 
 const MaxUploadSize = 20 * 1024 * 1024
 
 func (h *UploadHandler) UploadFile(c fiber.Ctx) error {
 	contentLength := c.Request().Header.ContentLength()
+	filename := c.Get("File-Name")
+	safeFilename := utils.SafeFilename(filename)
+	ext := filepath.Ext(safeFilename)
 
-	// if contentLength > MaxUploadSize {
-	// 	return c.Status(fiber.StatusRequestEntityTooLarge).SendString("File too large")
-	// }
+	if contentLength > MaxUploadSize {
+		return c.Status(fiber.StatusRequestEntityTooLarge).SendString("File too large")
+	}
 	if contentLength <= 0 {
 		return c.Status(fiber.StatusBadRequest).SendString("Invalid content length")
 	}
 
-	filePath := "uploaded_file"
+	id := h.Flake.Generate()
+
+	filePath := "temp/" + strconv.FormatInt(id, 10) + ext
 	file, err := os.Create(filePath)
 	if err != nil {
 		return err
@@ -47,13 +56,10 @@ func (h *UploadHandler) UploadFile(c fiber.Ctx) error {
 
 	buf := make([]byte, 1024*1024)
 	limitSrc := io.LimitReader(src, MaxUploadSize+1)
-	_, err = io.CopyBuffer(struct{ io.Writer }{file}, limitSrc, buf)
+	written, err := io.CopyBuffer(struct{ io.Writer }{file}, limitSrc, buf)
 	if err != nil {
 		return err
 	}
-
-	info, _ := file.Stat()
-	written := info.Size()
 
 	if written > MaxUploadSize {
 		return c.Status(fiber.StatusRequestEntityTooLarge).SendString("File exceeds size limit")

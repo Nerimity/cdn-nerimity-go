@@ -19,8 +19,8 @@ type ContentHandler struct {
 	Env *config.Config
 }
 
-func NewContentHandler(env *config.Config) *ContentHandler {
-	return &ContentHandler{Env: env}
+func NewContentHandler(context *ContentHandler) *ContentHandler {
+	return context
 }
 
 func (h *ContentHandler) GetContent(c fiber.Ctx) error {
