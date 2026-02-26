@@ -41,8 +41,8 @@ func cleanupOldFiles(dir string, ageThreshold time.Duration) {
 
 func StartFileCleanup() {
 	targetDir := "temp"
-	interval := 1 * time.Minute
-	threshold := 1 * time.Minute
+	interval := 5 * time.Minute
+	threshold := 5 * time.Minute
 
 	go func() {
 
