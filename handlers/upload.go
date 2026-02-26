@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"cdn_nerimity_go/config"
+	"cdn_nerimity_go/security"
 	"cdn_nerimity_go/utils"
 	"io"
 	"os"
@@ -14,6 +15,7 @@ import (
 type UploadHandler struct {
 	Env   *config.Config
 	Flake *utils.Flake
+	Jwt   *security.JWTService
 }
 
 func NewUploadHandler(context *UploadHandler) *UploadHandler {
@@ -25,6 +27,19 @@ const MaxUploadSize = 20 * 1024 * 1024
 func (h *UploadHandler) UploadFile(c fiber.Ctx) error {
 	contentLength := c.Request().Header.ContentLength()
 	filename := c.Get("File-Name")
+	token := c.Get("Authorization")
+
+	if token == "" {
+		return c.Status(fiber.StatusUnauthorized).SendString("Unauthorized")
+	}
+
+	claims, err := h.Jwt.VerifyToken(token)
+
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).SendString("Unauthorized")
+	}
+	println(claims.UserID)
+
 	safeFilename := utils.SafeFilename(filename)
 	ext := filepath.Ext(safeFilename)
 
