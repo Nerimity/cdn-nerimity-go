@@ -102,6 +102,12 @@ func (h *UploadHandler) UploadFile(c fiber.Ctx) error {
 		}
 	}
 
+	if shouldCompressImage {
+		utils.GenerateImageProxyURL(utils.ImageProxyOptions{
+			Path: filePath,
+		})
+	}
+
 	pendingFile := utils.PendingFile{
 		FileId:    fileId,
 		Path:      filePath,
