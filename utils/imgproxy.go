@@ -2,20 +2,23 @@ package utils
 
 import (
 	"fmt"
+	"log"
 	"net/url"
 	"strings"
+
+	vips "github.com/cshum/vipsgen/vips"
 )
 
-type ImageProxyOptions struct {
+const BASE_PROXY = "http://localhost:8888/pr:sharp/"
+
+type BasicImageProxyOptions struct {
 	URL        string
 	IsLocalURL bool
 	Static     bool
 	Size       int
 }
 
-const BASE_PROXY = "http://localhost:8888/pr:sharp/"
-
-func GenerateImageProxyURL(opts ImageProxyOptions) string {
+func GenerateBasicImageProxyURL(opts BasicImageProxyOptions) string {
 	var parts []string
 
 	var path = opts.URL
@@ -33,6 +36,56 @@ func GenerateImageProxyURL(opts ImageProxyOptions) string {
 		var size = fmt.Sprintf("rs:fit:%d:%d", opts.Size, opts.Size)
 		parts = append(parts, size)
 	}
+
+	parts = append(parts, "plain/"+encodedPath)
+
+	return BASE_PROXY + strings.Join(parts, "/") + "@webp"
+
+}
+
+type ImageProxyResizeType string
+
+const (
+	ResizeTypeFit  ImageProxyResizeType = "fit"
+	ResizeTypeFill ImageProxyResizeType = "fill"
+)
+
+type ImageProxySize struct {
+	Width      int
+	Height     int
+	ResizeType ImageProxyResizeType
+}
+type ImageProxyCrop struct {
+	Width  int
+	Height int
+	X      int
+	Y      int
+}
+
+type ImageProxyOptions struct {
+	Path   string
+	Static bool
+	Size   ImageProxySize
+	Crop   ImageProxyCrop
+}
+
+func GenerateImageProxyURL(opts ImageProxyOptions) string {
+	var parts []string
+
+	var path = "local:///" + opts.Path
+
+	var encodedPath = encodeURIComponent(path)
+
+	img, err := vips.NewImageFromFile("input.jpg", nil)
+	if err != nil {
+		log.Fatal(err)
+	}
+	println(img)
+
+	// if opts.Size != 0 {
+	// 	var size = fmt.Sprintf("rs:fit:%d:%d", opts.Size, opts.Size)
+	// 	parts = append(parts, size)
+	// }
 
 	parts = append(parts, "plain/"+encodedPath)
 

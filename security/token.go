@@ -19,13 +19,13 @@ func NewJWTService(secret string) *JWTService {
 
 type Claims struct {
 	jwt.RegisteredClaims
-	UserID string `json:"user_id"`
+	UserId string `json:"user_id"`
 }
 
 func (s *JWTService) GenerateToken(id int64) (string, error) {
 	now := time.Now()
 	claims := Claims{
-		UserID: strconv.FormatInt(id, 10),
+		UserId: strconv.FormatInt(id, 10),
 		RegisteredClaims: jwt.RegisteredClaims{
 			IssuedAt: jwt.NewNumericDate(now),
 		},

@@ -10,8 +10,11 @@ import (
 )
 
 func main() {
+	pendingFilesManager := utils.NewPendingFilesManager()
+	pendingFilesManager.StartCleanup()
 	utils.FlushTempFiles()
 	utils.StartFileCleanup()
+
 	env := config.LoadConfig()
 	flake := utils.NewFlake()
 	jwt := security.NewJWTService(env.JwtSecret)
@@ -25,7 +28,7 @@ func main() {
 	})
 
 	contentHandler := handlers.NewContentHandler(&handlers.ContentHandler{Env: env})
-	uploadHandler := handlers.NewUploadHandler(&handlers.UploadHandler{Env: env, Flake: flake, Jwt: jwt})
+	uploadHandler := handlers.NewUploadHandler(&handlers.UploadHandler{Env: env, Flake: flake, Jwt: jwt, PendingFilesManager: pendingFilesManager})
 	internalHandler := handlers.NewInternalHandler(&handlers.InternalHandler{Env: env, Jwt: jwt})
 
 	app.Get("/attachments/*", contentHandler.GetContent)
@@ -34,7 +37,10 @@ func main() {
 	app.Get("/profile_banners/*", contentHandler.GetContent)
 	app.Get("/external-embed/*", contentHandler.GetContent)
 
-	app.Post("/attachments", uploadHandler.UploadFile)
+	app.Post("/attachments/:groupId", uploadHandler.UploadFile)
+	app.Post("/avatars/:groupId", uploadHandler.UploadFile)
+	app.Post("/profile_banners/:groupId", uploadHandler.UploadFile)
+	app.Post("/emojis", uploadHandler.UploadFile)
 
 	app.Post("/internal/generate-token", internalHandler.GenerateToken)
 

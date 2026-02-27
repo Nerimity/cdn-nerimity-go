@@ -115,7 +115,7 @@ func handleProxyImage(c fiber.Ctx, finalPath string) error {
 	if size != "" {
 		parsedSize, _ = strconv.Atoi(size)
 	}
-	var proxyURL = utils.GenerateImageProxyURL(utils.ImageProxyOptions{URL: finalPath, IsLocalURL: true, Static: static, Size: parsedSize})
+	var proxyURL = utils.GenerateBasicImageProxyURL(utils.BasicImageProxyOptions{URL: finalPath, IsLocalURL: true, Static: static, Size: parsedSize})
 	println("Processing Image", proxyURL)
 
 	return proxy.Do(c, proxyURL)

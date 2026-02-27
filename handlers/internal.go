@@ -19,7 +19,7 @@ func NewInternalHandler(context *InternalHandler) *InternalHandler {
 }
 
 type GenerateTokenRequest struct {
-	UserID string `json:"userId"`
+	UserId string `json:"userId"`
 }
 
 func (h *InternalHandler) GenerateToken(c fiber.Ctx) error {
@@ -34,12 +34,12 @@ func (h *InternalHandler) GenerateToken(c fiber.Ctx) error {
 		return err
 	}
 
-	parsedID, err := strconv.ParseInt(body.UserID, 10, 64)
+	parsedId, err := strconv.ParseInt(body.UserId, 10, 64)
 	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, "Invalid user ID")
+		return fiber.NewError(fiber.StatusBadRequest, "Invalid user Id")
 	}
 
-	token, err := h.Jwt.GenerateToken(parsedID)
+	token, err := h.Jwt.GenerateToken(parsedId)
 	if err != nil {
 		return fiber.NewError(fiber.StatusInternalServerError, fmt.Sprintf("Failed to generate token: %s", err.Error()))
 	}
