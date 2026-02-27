@@ -5,12 +5,21 @@ import (
 	"time"
 )
 
+type FileCategory string
+
+const (
+	AttachmentsCategory    FileCategory = "attachments"
+	EmojisCategory         FileCategory = "emojis"
+	AvatarsCategory        FileCategory = "avatars"
+	ProfileBannersCategory FileCategory = "profile_banners"
+)
+
 type PendingFile struct {
 	FileId    int64
 	GroupId   int64
 	UserId    int64
 	Path      string
-	Type      string
+	Type      FileCategory
 	ExpiresAt time.Time
 }
 

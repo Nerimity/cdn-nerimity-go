@@ -1,8 +1,9 @@
 package utils
 
 import (
+	"encoding/json"
+	"errors"
 	"fmt"
-	"log"
 	"math"
 	"net/url"
 	"strings"
@@ -77,15 +78,13 @@ func GenerateImageProxyURL(opts ImageProxyOptions) (string, error) {
 
 	var encodedPath = encodeURIComponent(path)
 
-	println("generating")
 	image, err := vips.NewImageFromFile(opts.Path, nil)
 	if err != nil {
-		log.Println(err)
 		return "", err
 	}
 	defer image.Close()
 
-	isAnimated := image.Pages()
+	// isAnimated := image.Pages()
 	width := image.Width()
 	height := image.Height()
 
@@ -93,8 +92,8 @@ func GenerateImageProxyURL(opts ImageProxyOptions) (string, error) {
 
 	targetDims := calculateTargetDimensions(
 		calculateTargetDimensionsOptions{
-			OriginalDimensions: dimensions{Width: width, Height: height},
-			MaxDimensions:      dimensions{Width: opts.Size.Width, Height: opts.Size.Height},
+			OriginalDimensions: Dimensions{Width: width, Height: height},
+			MaxDimensions:      Dimensions{Width: opts.Size.Width, Height: opts.Size.Height},
 			AspectRatio:        aspectRatio,
 		},
 	)
@@ -111,11 +110,6 @@ func GenerateImageProxyURL(opts ImageProxyOptions) (string, error) {
 
 	}
 
-	// if opts.Size != 0 {
-	// 	var size = fmt.Sprintf("rs:fit:%d:%d", opts.Size, opts.Size)
-	// 	parts = append(parts, size)
-	// }
-
 	parts = append(parts, "plain/"+encodedPath)
 
 	return BASE_PROXY + strings.Join(parts, "/") + "@webp", nil
@@ -128,18 +122,18 @@ func encodeURIComponent(str string) string {
 	return strings.ReplaceAll(escaped, "+", "%20")
 }
 
-type dimensions struct {
-	Width  int
-	Height int
+type Dimensions struct {
+	Width  int `json:"width"`
+	Height int `json:"height"`
 }
 
 type calculateTargetDimensionsOptions struct {
-	OriginalDimensions dimensions
-	MaxDimensions      dimensions
+	OriginalDimensions Dimensions
+	MaxDimensions      Dimensions
 	AspectRatio        float64
 }
 
-func calculateTargetDimensions(opts calculateTargetDimensionsOptions) dimensions {
+func calculateTargetDimensions(opts calculateTargetDimensionsOptions) Dimensions {
 	origWidth := float64(opts.OriginalDimensions.Width)
 	origHeight := float64(opts.OriginalDimensions.Height)
 
@@ -167,8 +161,48 @@ func calculateTargetDimensions(opts calculateTargetDimensionsOptions) dimensions
 	// math.Min requires float64; ensures we only downscale
 	finalScale := math.Min(1.0, math.Min(widthScale, heightScale))
 
-	return dimensions{
+	return Dimensions{
 		Width:  int(math.Round(targetW * finalScale)),
 		Height: int(math.Round(targetH * finalScale)),
+	}
+}
+
+func PointsToDimensions(pointsStr string) (*Dimensions, []float64, error) {
+	if pointsStr == "" {
+		return nil, nil, nil
+	}
+
+	var parsedPoints []float64
+	err := json.Unmarshal([]byte(pointsStr), &parsedPoints)
+	if err != nil {
+		return nil, nil, errors.New("Invalid crop points.")
+	}
+
+	if len(parsedPoints) != 4 {
+		return nil, nil, errors.New("Invalid crop points.")
+	}
+
+	for _, point := range parsedPoints {
+		if math.IsNaN(point) || point < 0 || point > 9999 {
+			return nil, nil, errors.New("Invalid crop points.")
+		}
+	}
+
+	dimensions := getDimensions(parsedPoints)
+	return &dimensions, parsedPoints, nil
+}
+
+func getDimensions(points []float64) Dimensions {
+	startX := points[0]
+	startY := points[1]
+	endX := points[2]
+	endY := points[3]
+
+	width := math.Abs(endX - startX)
+	height := math.Abs(endY - startY)
+
+	return Dimensions{
+		Width:  int(math.Round(width)),
+		Height: int(math.Round(height)),
 	}
 }

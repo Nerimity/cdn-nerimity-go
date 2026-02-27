@@ -5,6 +5,7 @@ import (
 	"cdn_nerimity_go/security"
 	"cdn_nerimity_go/utils"
 	"io"
+	"math"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -36,7 +37,7 @@ func (h *UploadHandler) UploadFile(c fiber.Ctx) error {
 	groupId := c.Params("groupId")
 
 	// attachments, emojis, avatars, profile_banners
-	attachmentType := strings.ToLower(strings.Split(c.Path(), "/")[1])
+	attachmentType := utils.FileCategory(strings.ToLower(strings.Split(c.Path(), "/")[1]))
 	isImage := utils.IsImage(filepath.Ext(filename))
 
 	println(attachmentType, groupId)
@@ -103,9 +104,51 @@ func (h *UploadHandler) UploadFile(c fiber.Ctx) error {
 	}
 
 	if shouldCompressImage {
-		utils.GenerateImageProxyURL(utils.ImageProxyOptions{
+		opts := utils.ImageProxyOptions{
 			Path: filePath,
-		})
+		}
+		opts.Size = utils.ImageProxySize{}
+
+		if attachmentType == utils.AttachmentsCategory {
+			opts.Size.Width = 1920
+			opts.Size.Height = 1080
+			opts.Size.ResizeType = utils.ResizeTypeFit
+		}
+		if attachmentType == utils.EmojisCategory {
+			opts.Size.Width = 100
+			opts.Size.Height = 100
+			opts.Size.ResizeType = utils.ResizeTypeFit
+		}
+		if attachmentType == utils.AvatarsCategory {
+			opts.Size.Width = 200
+			opts.Size.Height = 200
+			opts.Size.ResizeType = utils.ResizeTypeFill
+		}
+		if attachmentType == utils.ProfileBannersCategory {
+			opts.Size.Width = 1920
+			opts.Size.Height = 1080
+			opts.Size.ResizeType = utils.ResizeTypeFill
+		}
+
+		if attachmentType == utils.AvatarsCategory || attachmentType == utils.ProfileBannersCategory {
+			strPoints := c.Query("points")
+			dimensions, points, _ := utils.PointsToDimensions(strPoints)
+			if dimensions != nil {
+				opts.Crop = &utils.ImageProxyCrop{
+					Width:  dimensions.Width,
+					Height: dimensions.Height,
+					X:      int(math.Round(points[0])),
+					Y:      int(math.Round(points[1])),
+				}
+			}
+
+		}
+
+		url, err := utils.GenerateImageProxyURL(opts)
+		if err != nil {
+			return err
+		}
+		println(url)
 	}
 
 	pendingFile := utils.PendingFile{
