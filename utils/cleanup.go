@@ -39,21 +39,21 @@ func cleanupOldFiles(dir string, ageThreshold time.Duration) {
 	}
 }
 
-func StartFileCleanup() {
-	targetDir := "temp"
-	interval := 5 * time.Minute
-	threshold := 5 * time.Minute
+// func StartFileCleanup() {
+// 	targetDir := "temp"
+// 	interval := 5 * time.Minute
+// 	threshold := 5 * time.Minute
 
-	go func() {
+// 	go func() {
 
-		ticker := time.NewTicker(interval)
-		defer ticker.Stop()
+// 		ticker := time.NewTicker(interval)
+// 		defer ticker.Stop()
 
-		for range ticker.C {
-			cleanupOldFiles(targetDir, threshold)
-		}
-	}()
-}
+// 		for range ticker.C {
+// 			cleanupOldFiles(targetDir, threshold)
+// 		}
+// 	}()
+// }
 
 func FlushTempFiles() {
 	dir := "temp"

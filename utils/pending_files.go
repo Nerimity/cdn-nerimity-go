@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"os"
 	"sync"
 	"time"
 )
@@ -68,7 +69,7 @@ func (m *PendingFilesManager) Verify(fileId int64, groupId int64) (*PendingFile,
 }
 
 func (m *PendingFilesManager) StartCleanup() {
-	interval := 5 * time.Minute
+	interval := 1 * time.Minute
 	go func() {
 		ticker := time.NewTicker(interval)
 		defer ticker.Stop()
@@ -78,6 +79,7 @@ func (m *PendingFilesManager) StartCleanup() {
 			now := time.Now()
 			for id, file := range m.store {
 				if now.After(file.ExpiresAt) {
+					os.Remove(file.Path)
 					delete(m.store, id)
 				}
 			}

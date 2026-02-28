@@ -13,7 +13,7 @@ func main() {
 	pendingFilesManager := utils.NewPendingFilesManager()
 	pendingFilesManager.StartCleanup()
 	utils.FlushTempFiles()
-	utils.StartFileCleanup()
+	// utils.StartFileCleanup()
 
 	env := config.LoadConfig()
 	flake := utils.NewFlake()

@@ -36,15 +36,13 @@ func (h *UploadHandler) UploadFile(c fiber.Ctx) error {
 	filename := c.Get("File-Name")
 	groupId := c.Params("groupId")
 
-	attachmentCategory := utils.FileCategory(strings.ToLower(strings.Split(c.Path(), "/")[1]))
 	isImage := utils.IsImage(filepath.Ext(filename))
-
-	println(attachmentCategory, groupId)
 
 	claims, err := auth(c, h)
 	if err != nil {
 		return err
 	}
+
 	err = validate(c, h)
 	if err != nil {
 		return err
@@ -89,6 +87,7 @@ func (h *UploadHandler) UploadFile(c fiber.Ctx) error {
 		pendingFile.UserId, _ = strconv.ParseInt(claims.UserId, 10, 64)
 	}
 
+	pendingFile.ExpiresAt = time.Now().Add(1 * time.Minute)
 	h.PendingFilesManager.Add(*pendingFile)
 	success = true
 	return c.JSON(fiber.Map{
@@ -117,9 +116,10 @@ func handleImageMetadata(c fiber.Ctx, pendingFile *utils.PendingFile) error {
 }
 
 func sendError(c fiber.Ctx, status int, message string) error {
-	return c.Status(status).JSON(fiber.Map{
+	c.Status(status).JSON(fiber.Map{
 		"message": message,
 	})
+	return fiber.NewError(status, message)
 }
 
 func compressImage(c fiber.Ctx, filePath string, category utils.FileCategory) (string, error) {
@@ -242,6 +242,7 @@ func auth(c fiber.Ctx, h *UploadHandler) (*security.Claims, error) {
 	}
 
 	claims, err := h.Jwt.VerifyToken(token)
+
 	if err != nil {
 		return nil, sendError(c, fiber.StatusUnauthorized, "Unauthorized")
 	}
@@ -289,11 +290,7 @@ func handleUpload(c fiber.Ctx, h *UploadHandler) (*utils.PendingFile, error) {
 	filename := c.Get("File-Name")
 	mimeType := c.Get("File-Content-Type")
 
-	groupId := c.Params("groupId")
-
 	attachmentCategory := utils.FileCategory(strings.ToLower(strings.Split(c.Path(), "/")[1]))
-
-	println(attachmentCategory, groupId)
 
 	safeFilename := utils.SafeFilename(filename)
 	ext := filepath.Ext(safeFilename)
@@ -321,12 +318,11 @@ func handleUpload(c fiber.Ctx, h *UploadHandler) (*utils.PendingFile, error) {
 	}
 
 	return &utils.PendingFile{
-		FileId:    fileId,
-		Path:      filePath,
-		Type:      attachmentCategory,
-		MimeType:  mimeType,
-		FileSize:  int(written),
-		ExpiresAt: time.Now().Add(2 * time.Minute),
+		FileId:   fileId,
+		Path:     filePath,
+		Type:     attachmentCategory,
+		MimeType: mimeType,
+		FileSize: int(written),
 	}, nil
 }
 

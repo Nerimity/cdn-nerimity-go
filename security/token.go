@@ -51,6 +51,9 @@ func (s *JWTService) VerifyToken(tokenString string) (*Claims, error) {
 	if !ok || !token.Valid {
 		return nil, jwt.ErrSignatureInvalid
 	}
+	if claims == nil {
+		return nil, jwt.ErrSignatureInvalid
+	}
 	issuedAt := claims.IssuedAt.Time
 
 	// Check if the token is expired. token is valid for 3 minutes
