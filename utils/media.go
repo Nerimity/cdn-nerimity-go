@@ -2,7 +2,7 @@ package utils
 
 import "strings"
 
-func IsOtherMedia(ext string) bool {
+func IsAudioOrVideo(ext string) bool {
 	switch ext {
 	case ".mp4", ".webm", ".ogg", ".mp3", ".wav":
 		return true
@@ -11,7 +11,7 @@ func IsOtherMedia(ext string) bool {
 	}
 }
 
-func isMimeOtherMedia(mime string) bool {
+func IsMimeAudioOrVideo(mime string) bool {
 	switch mime {
 	case "video/mp4", "video/webm", "video/ogg", "video/mp3", "video/wav":
 		return true

@@ -4,6 +4,7 @@ import (
 	"cdn_nerimity_go/config"
 	"cdn_nerimity_go/security"
 	"cdn_nerimity_go/utils"
+	"context"
 	"fmt"
 	"io"
 	"math"
@@ -16,6 +17,7 @@ import (
 
 	"github.com/cshum/vipsgen/vips"
 	"github.com/gofiber/fiber/v3"
+	"gopkg.in/vansante/go-ffprobe.v2"
 )
 
 type UploadHandler struct {
@@ -38,6 +40,7 @@ func (h *UploadHandler) UploadFile(c fiber.Ctx) error {
 	fileContentType := string(c.Request().Header.ContentType())
 
 	isImage := utils.IsImage(filepath.Ext(filename)) && utils.IsMimeImage(fileContentType)
+	isAudioOrVideo := utils.IsAudioOrVideo(filepath.Ext(filename)) && utils.IsMimeAudioOrVideo(fileContentType)
 
 	claims, err := auth(c, h)
 	if err != nil {
@@ -61,6 +64,13 @@ func (h *UploadHandler) UploadFile(c fiber.Ctx) error {
 		return err
 	}
 	finalPath = pendingFile.Path
+	if groupId != "" {
+		pendingFile.GroupId, _ = strconv.ParseInt(groupId, 10, 64)
+
+	}
+	if claims.UserId != "" {
+		pendingFile.UserId, _ = strconv.ParseInt(claims.UserId, 10, 64)
+	}
 
 	shouldCompressImage := isImage && pendingFile.FileSize <= MaxImageSize
 
@@ -72,20 +82,19 @@ func (h *UploadHandler) UploadFile(c fiber.Ctx) error {
 		}
 	}
 
+	if isAudioOrVideo {
+		duration, err := getMediaDuration(pendingFile.Path)
+		if err == nil {
+			pendingFile.Duration = duration
+		}
+	}
+
 	if imageCompressed {
 		finalPath = pendingFile.Path
 		err = handleImageMetadata(c, pendingFile)
 		if err != nil {
 			return err
 		}
-
-	}
-	if groupId != "" {
-		pendingFile.GroupId, _ = strconv.ParseInt(groupId, 10, 64)
-
-	}
-	if claims.UserId != "" {
-		pendingFile.UserId, _ = strconv.ParseInt(claims.UserId, 10, 64)
 	}
 
 	pendingFile.ExpiresAt = time.Now().Add(1 * time.Minute)
@@ -341,4 +350,16 @@ func handleCompressImage(c fiber.Ctx, h *UploadHandler, pendingFile *utils.Pendi
 	}
 
 	return false, nil
+}
+
+func getMediaDuration(path string) (int, error) {
+	ctx, cancelFn := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancelFn()
+
+	data, err := ffprobe.ProbeURL(ctx, path)
+	if err != nil {
+		return 0, sendError(nil, fiber.StatusInternalServerError, "Failed to get media duration")
+	}
+
+	return int(data.Format.Duration().Milliseconds()), nil
 }

@@ -60,7 +60,7 @@ func serveFile(c fiber.Ctx, finalPath string) error {
 	ext := strings.ToLower(filepath.Ext(finalPath))
 
 	switch {
-	case utils.IsOtherMedia(ext):
+	case utils.IsAudioOrVideo(ext):
 		// TODO: make it so video doesn't load when directly accessing the url, but only when its embedded in the app.
 		return c.SendFile(finalPath, fiber.SendFile{
 			ByteRange: true,

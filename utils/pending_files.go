@@ -24,6 +24,7 @@ type PendingFile struct {
 	Type             FileCategory
 	ImageCompressed  bool
 	MimeType         string
+	Duration         int
 	Height           int
 	Width            int
 	Animated         bool
