@@ -4,8 +4,10 @@ import (
 	"cdn_nerimity_go/config"
 	"cdn_nerimity_go/security"
 	"cdn_nerimity_go/utils"
+	"fmt"
 	"io"
 	"math"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -36,31 +38,29 @@ func (h *UploadHandler) UploadFile(c fiber.Ctx) error {
 
 	groupId := c.Params("groupId")
 
-	// attachments, emojis, avatars, profile_banners
-	attachmentType := utils.FileCategory(strings.ToLower(strings.Split(c.Path(), "/")[1]))
+	attachmentCategory := utils.FileCategory(strings.ToLower(strings.Split(c.Path(), "/")[1]))
 	isImage := utils.IsImage(filepath.Ext(filename))
 
-	println(attachmentType, groupId)
+	println(attachmentCategory, groupId)
 
 	if token == "" {
-		return c.Status(fiber.StatusUnauthorized).SendString("Unauthorized")
+		return sendError(c, fiber.StatusUnauthorized, "Unauthorized")
 	}
 
 	claims, err := h.Jwt.VerifyToken(token)
 
 	if err != nil {
-		return c.Status(fiber.StatusUnauthorized).SendString("Unauthorized")
+		return sendError(c, fiber.StatusUnauthorized, "Unauthorized")
 	}
-	println(claims.UserId)
 
 	safeFilename := utils.SafeFilename(filename)
 	ext := filepath.Ext(safeFilename)
 
 	if contentLength > MaxUploadSize {
-		return c.Status(fiber.StatusRequestEntityTooLarge).SendString("File too large")
+		return sendError(c, fiber.StatusBadRequest, "File too large")
 	}
 	if contentLength <= 0 {
-		return c.Status(fiber.StatusBadRequest).SendString("Invalid content length")
+		return sendError(c, fiber.StatusBadRequest, "Invalid content length")
 	}
 
 	fileId := h.Flake.Generate()
@@ -68,7 +68,7 @@ func (h *UploadHandler) UploadFile(c fiber.Ctx) error {
 	filePath := "temp/" + strconv.FormatInt(fileId, 10) + ext
 	file, err := os.Create(filePath)
 	if err != nil {
-		return err
+		return sendError(c, fiber.StatusInternalServerError, "Failed to create file")
 	}
 	uploadSuccessful := false
 
@@ -86,76 +86,42 @@ func (h *UploadHandler) UploadFile(c fiber.Ctx) error {
 	limitSrc := io.LimitReader(src, MaxUploadSize+1)
 	written, err := io.CopyBuffer(struct{ io.Writer }{file}, limitSrc, buf)
 	if err != nil {
-		return err
+		return sendError(c, fiber.StatusInternalServerError, "Failed to write file")
 	}
 
 	if written > MaxUploadSize {
-		return c.Status(fiber.StatusRequestEntityTooLarge).SendString("File exceeds size limit")
+		return sendError(c, fiber.StatusBadRequest, "File exceeds size limit")
 	}
 
 	shouldCompressImage := isImage && written <= MaxImageSize
-	if attachmentType != "attachments" {
+	if attachmentCategory != "attachments" {
 		if !isImage {
-			return c.Status(fiber.StatusBadRequest).SendString("Invalid file type")
+			return sendError(c, fiber.StatusBadRequest, "Invalid file type")
 		}
 		if !shouldCompressImage {
-			return c.Status(fiber.StatusRequestEntityTooLarge).SendString("Image exceeds size limit")
+			return sendError(c, fiber.StatusBadRequest, "Image exceeds size limit")
 		}
 	}
 
+	imageCompressed := false
 	if shouldCompressImage {
-		opts := utils.ImageProxyOptions{
-			Path: filePath,
-		}
-		opts.Size = utils.ImageProxySize{}
-
-		if attachmentType == utils.AttachmentsCategory {
-			opts.Size.Width = 1920
-			opts.Size.Height = 1080
-			opts.Size.ResizeType = utils.ResizeTypeFit
-		}
-		if attachmentType == utils.EmojisCategory {
-			opts.Size.Width = 100
-			opts.Size.Height = 100
-			opts.Size.ResizeType = utils.ResizeTypeFit
-		}
-		if attachmentType == utils.AvatarsCategory {
-			opts.Size.Width = 200
-			opts.Size.Height = 200
-			opts.Size.ResizeType = utils.ResizeTypeFill
-		}
-		if attachmentType == utils.ProfileBannersCategory {
-			opts.Size.Width = 1920
-			opts.Size.Height = 1080
-			opts.Size.ResizeType = utils.ResizeTypeFill
+		newPath, err := compressImage(c, filePath, attachmentCategory)
+		if err != nil && attachmentCategory != utils.AttachmentsCategory {
+			return sendError(c, fiber.StatusInternalServerError, "Failed to compress image")
 		}
 
-		if attachmentType == utils.AvatarsCategory || attachmentType == utils.ProfileBannersCategory {
-			strPoints := c.Query("points")
-			dimensions, points, _ := utils.PointsToDimensions(strPoints)
-			if dimensions != nil {
-				opts.Crop = &utils.ImageProxyCrop{
-					Width:  dimensions.Width,
-					Height: dimensions.Height,
-					X:      int(math.Round(points[0])),
-					Y:      int(math.Round(points[1])),
-				}
-			}
-
+		if err == nil {
+			imageCompressed = true
+			filePath = newPath
 		}
-
-		url, err := utils.GenerateImageProxyURL(opts)
-		if err != nil {
-			return err
-		}
-		println(url)
 	}
 
 	pendingFile := utils.PendingFile{
-		FileId:    fileId,
-		Path:      filePath,
-		Type:      attachmentType,
-		ExpiresAt: time.Now().Add(5 * time.Minute),
+		FileId:          fileId,
+		Path:            filePath,
+		Type:            attachmentCategory,
+		ImageCompressed: imageCompressed,
+		ExpiresAt:       time.Now().Add(2 * time.Minute),
 	}
 
 	if groupId != "" {
@@ -168,6 +134,127 @@ func (h *UploadHandler) UploadFile(c fiber.Ctx) error {
 	h.PendingFilesManager.Add(pendingFile)
 
 	uploadSuccessful = true
-	return c.SendString("Uploaded!")
+	return c.JSON(fiber.Map{
+		"fileId": strconv.FormatInt(fileId, 10),
+	})
 
+}
+
+func sendError(c fiber.Ctx, status int, message string) error {
+	return c.Status(status).JSON(fiber.Map{
+		"message": message,
+	})
+}
+
+func compressImage(c fiber.Ctx, filePath string, category utils.FileCategory) (string, error) {
+	opts := utils.ImageProxyOptions{
+		Path: filePath,
+	}
+	opts.Size = getSize(category)
+
+	if category == utils.AvatarsCategory || category == utils.ProfileBannersCategory {
+		strPoints := c.Query("points")
+		dimensions, points, _ := utils.PointsToDimensions(strPoints)
+		if dimensions != nil {
+			opts.Crop = &utils.ImageProxyCrop{
+				Width:  dimensions.Width,
+				Height: dimensions.Height,
+				X:      int(math.Round(points[0])),
+				Y:      int(math.Round(points[1])),
+			}
+		}
+
+	}
+
+	url, err := utils.GenerateImageProxyURL(opts)
+	if err != nil {
+		return "", err
+	}
+	newPath, err := downloadAndReplaceImage(url, filePath)
+	if err != nil {
+		return "", err
+	}
+
+	return newPath, nil
+
+}
+
+func getSize(category utils.FileCategory) utils.ImageProxySize {
+	size := utils.ImageProxySize{}
+
+	if category == utils.AttachmentsCategory {
+		size.Width = 1920
+		size.Height = 1080
+		size.ResizeType = utils.ResizeTypeFit
+	}
+	if category == utils.EmojisCategory {
+		size.Width = 100
+		size.Height = 100
+		size.ResizeType = utils.ResizeTypeFit
+	}
+	if category == utils.AvatarsCategory {
+		size.Width = 200
+		size.Height = 200
+		size.ResizeType = utils.ResizeTypeFill
+	}
+	if category == utils.ProfileBannersCategory {
+		size.Width = 1920
+		size.Height = 1080
+		size.ResizeType = utils.ResizeTypeFill
+	}
+	return size
+}
+
+func downloadAndReplaceImage(url, oldFilePath string) (string, error) {
+	client := &http.Client{
+		Timeout: 30 * time.Second,
+	}
+
+	resp, err := client.Get(url)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("failed to fetch: %s", resp.Status)
+	}
+
+	dir := filepath.Dir(oldFilePath)
+	base := filepath.Base(oldFilePath)
+	nameWithoutExt := strings.TrimSuffix(base, filepath.Ext(base))
+	newPath := filepath.Join(dir, nameWithoutExt+".webp")
+
+	tempFile, err := os.CreateTemp(dir, "replace-*.tmp")
+	if err != nil {
+		return "", err
+	}
+	tempName := tempFile.Name()
+
+	defer func() {
+		tempFile.Close()
+		os.Remove(tempName)
+	}()
+
+	buffer := make([]byte, 1024*1024)
+
+	_, err = io.CopyBuffer(tempFile, resp.Body, buffer)
+	if err != nil {
+		return "", err
+	}
+
+	if err := tempFile.Close(); err != nil {
+		return "", err
+	}
+
+	if oldFilePath != newPath {
+		_ = os.Remove(oldFilePath)
+	}
+
+	err = os.Rename(tempName, newPath)
+	if err != nil {
+		return "", err
+	}
+
+	return newPath, nil
 }

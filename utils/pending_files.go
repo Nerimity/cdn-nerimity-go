@@ -15,12 +15,13 @@ const (
 )
 
 type PendingFile struct {
-	FileId    int64
-	GroupId   int64
-	UserId    int64
-	Path      string
-	Type      FileCategory
-	ExpiresAt time.Time
+	FileId          int64
+	GroupId         int64
+	UserId          int64
+	Path            string
+	Type            FileCategory
+	ImageCompressed bool
+	ExpiresAt       time.Time
 }
 
 type PendingFilesManager struct {
