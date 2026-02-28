@@ -16,18 +16,19 @@ const (
 )
 
 type PendingFile struct {
-	FileId          int64
-	GroupId         int64
-	UserId          int64
-	Path            string
-	Type            FileCategory
-	ImageCompressed bool
-	MimeType        string
-	Height          int
-	Width           int
-	Animated        bool
-	FileSize        int
-	ExpiresAt       time.Time
+	OriginalFilename string
+	FileId           int64
+	GroupId          int64
+	UserId           int64
+	Path             string
+	Type             FileCategory
+	ImageCompressed  bool
+	MimeType         string
+	Height           int
+	Width            int
+	Animated         bool
+	FileSize         int
+	ExpiresAt        time.Time
 }
 
 type PendingFilesManager struct {

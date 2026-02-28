@@ -320,11 +320,12 @@ func handleUpload(c fiber.Ctx, h *UploadHandler) (*utils.PendingFile, error) {
 	}
 
 	return &utils.PendingFile{
-		FileId:   fileId,
-		Path:     filePath,
-		Type:     attachmentCategory,
-		MimeType: mimeType,
-		FileSize: int(written),
+		OriginalFilename: safeFilename,
+		FileId:           fileId,
+		Path:             filePath,
+		Type:             attachmentCategory,
+		MimeType:         mimeType,
+		FileSize:         int(written),
 	}, nil
 }
 
