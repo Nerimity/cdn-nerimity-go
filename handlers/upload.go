@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cshum/vipsgen/vips"
 	"github.com/gofiber/fiber/v3"
 )
 
@@ -34,6 +35,7 @@ const MaxImageSize = 12 * 1024 * 1024
 func (h *UploadHandler) UploadFile(c fiber.Ctx) error {
 	contentLength := c.Request().Header.ContentLength()
 	filename := c.Get("File-Name")
+	mimeType := c.Get("File-Content-Type")
 	token := c.Get("Authorization")
 
 	groupId := c.Params("groupId")
@@ -121,9 +123,26 @@ func (h *UploadHandler) UploadFile(c fiber.Ctx) error {
 		Path:            filePath,
 		Type:            attachmentCategory,
 		ImageCompressed: imageCompressed,
+		MimeType:        mimeType,
+		FileSize:        int(written),
 		ExpiresAt:       time.Now().Add(2 * time.Minute),
 	}
 
+	if imageCompressed {
+		image, err := vips.NewImageFromFile(filePath, nil)
+		if err != nil {
+			return sendError(c, fiber.StatusInternalServerError, "Failed to open image")
+		}
+		defer image.Close()
+		fileInfo, err := os.Stat(filePath)
+		if err != nil {
+			return sendError(c, fiber.StatusInternalServerError, "Failed to get file info")
+		}
+		pendingFile.Height = image.Height()
+		pendingFile.Width = image.Width()
+		pendingFile.Animated = image.Pages() > 1
+		pendingFile.FileSize = int(fileInfo.Size())
+	}
 	if groupId != "" {
 		pendingFile.GroupId, err = strconv.ParseInt(groupId, 10, 64)
 		if err != nil {

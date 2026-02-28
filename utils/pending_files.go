@@ -21,6 +21,11 @@ type PendingFile struct {
 	Path            string
 	Type            FileCategory
 	ImageCompressed bool
+	MimeType        string
+	Height          int
+	Width           int
+	Animated        bool
+	FileSize        int
 	ExpiresAt       time.Time
 }
 
