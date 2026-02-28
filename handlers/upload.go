@@ -35,8 +35,9 @@ const MaxImageSize = 12 * 1024 * 1024
 func (h *UploadHandler) UploadFile(c fiber.Ctx) error {
 	filename := c.Get("File-Name")
 	groupId := c.Params("groupId")
+	fileContentType := string(c.Request().Header.ContentType())
 
-	isImage := utils.IsImage(filepath.Ext(filename))
+	isImage := utils.IsImage(filepath.Ext(filename)) && utils.IsMimeImage(fileContentType)
 
 	claims, err := auth(c, h)
 	if err != nil {
@@ -253,11 +254,12 @@ func auth(c fiber.Ctx, h *UploadHandler) (*security.Claims, error) {
 func validate(c fiber.Ctx, h *UploadHandler) error {
 	contentLength := c.Request().Header.ContentLength()
 	filename := c.Get("File-Name")
+	fileContentType := c.Request().Header.ContentType()
 
 	groupId := c.Params("groupId")
 
 	attachmentCategory := utils.FileCategory(strings.ToLower(strings.Split(c.Path(), "/")[1]))
-	isImage := utils.IsImage(filepath.Ext(filename))
+	isImage := utils.IsImage(filepath.Ext(filename)) && utils.IsMimeImage(fileContentType)
 
 	if contentLength > MaxUploadSize {
 		return sendError(c, fiber.StatusBadRequest, "File too large")
@@ -288,7 +290,7 @@ func validate(c fiber.Ctx, h *UploadHandler) error {
 
 func handleUpload(c fiber.Ctx, h *UploadHandler) (*utils.PendingFile, error) {
 	filename := c.Get("File-Name")
-	mimeType := c.Get("File-Content-Type")
+	mimeType := string(c.Request().Header.ContentType())
 
 	attachmentCategory := utils.FileCategory(strings.ToLower(strings.Split(c.Path(), "/")[1]))
 
