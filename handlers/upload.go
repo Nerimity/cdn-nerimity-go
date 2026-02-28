@@ -254,7 +254,7 @@ func auth(c fiber.Ctx, h *UploadHandler) (*security.Claims, error) {
 func validate(c fiber.Ctx, h *UploadHandler) error {
 	contentLength := c.Request().Header.ContentLength()
 	filename := c.Get("File-Name")
-	fileContentType := c.Request().Header.ContentType()
+	fileContentType := string(c.Request().Header.ContentType())
 
 	groupId := c.Params("groupId")
 
