@@ -125,7 +125,10 @@ func (h *UploadHandler) UploadFile(c fiber.Ctx) error {
 	}
 
 	if groupId != "" {
-		pendingFile.GroupId, _ = strconv.ParseInt(groupId, 10, 64)
+		pendingFile.GroupId, err = strconv.ParseInt(groupId, 10, 64)
+		if err != nil {
+			return sendError(c, fiber.StatusBadRequest, "Invalid group id")
+		}
 	}
 	if claims.UserId != "" {
 		pendingFile.UserId, _ = strconv.ParseInt(claims.UserId, 10, 64)
