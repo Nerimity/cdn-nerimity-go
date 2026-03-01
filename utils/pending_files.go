@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"errors"
 	"os"
 	"sync"
 	"time"
@@ -50,24 +51,21 @@ func (m *PendingFilesManager) Add(file PendingFile) {
 	m.store[file.FileId] = &file
 }
 
-func (m *PendingFilesManager) Verify(fileId int64, groupId int64) (*PendingFile, bool) {
+func (m *PendingFilesManager) Verify(fileId int64) (*PendingFile, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
 	file, ok := m.store[fileId]
 	if !ok {
-		return nil, false
+		return nil, errors.New("File not found")
 	}
 	delete(m.store, fileId)
 
 	if time.Now().After(file.ExpiresAt) {
-		return nil, false
-	}
-	if file.GroupId != groupId {
-		return nil, false
+		return nil, errors.New("File expired")
 	}
 
-	return file, true
+	return file, nil
 }
 
 func (m *PendingFilesManager) StartCleanup() {

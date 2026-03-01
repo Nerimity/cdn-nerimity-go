@@ -29,7 +29,7 @@ func main() {
 
 	contentHandler := handlers.NewContentHandler(&handlers.ContentHandler{Env: env})
 	uploadHandler := handlers.NewUploadHandler(&handlers.UploadHandler{Env: env, Flake: flake, Jwt: jwt, PendingFilesManager: pendingFilesManager})
-	internalHandler := handlers.NewInternalHandler(&handlers.InternalHandler{Env: env, Jwt: jwt})
+	internalHandler := handlers.NewInternalHandler(&handlers.InternalHandler{Env: env, Jwt: jwt, PendingFileManager: pendingFilesManager})
 
 	app.Get("/attachments/*", contentHandler.GetContent)
 	app.Get("/emojis/*", contentHandler.GetContent)
@@ -43,6 +43,7 @@ func main() {
 	app.Post("/emojis", uploadHandler.UploadFile)
 
 	app.Post("/internal/generate-token", internalHandler.GenerateToken)
+	app.Post("/internal/verify-file", internalHandler.VerifyFile)
 
 	app.Listen(":" + env.Port)
 
