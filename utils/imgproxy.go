@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"math"
-	"net/url"
 	"strings"
 
 	"github.com/cshum/vipsgen/vips"
@@ -27,7 +26,7 @@ func GenerateBasicImageProxyURL(opts BasicImageProxyOptions) string {
 	if opts.IsLocalURL {
 		path = "local:///" + path
 	}
-	var encodedPath = encodeURIComponent(path)
+	var encodedPath = EncodeURIComponent(path)
 
 	if opts.Static {
 		var static = "page:0"
@@ -76,7 +75,7 @@ func GenerateImageProxyURL(opts ImageProxyOptions) (string, error) {
 
 	var path = "local:///" + opts.Path
 
-	var encodedPath = encodeURIComponent(path)
+	var encodedPath = EncodeURIComponent(path)
 
 	image, err := vips.NewImageFromFile(opts.Path, nil)
 	if err != nil {
@@ -114,12 +113,6 @@ func GenerateImageProxyURL(opts ImageProxyOptions) (string, error) {
 
 	return BASE_PROXY + strings.Join(parts, "/") + "@webp", nil
 
-}
-
-func encodeURIComponent(str string) string {
-	escaped := url.QueryEscape(str)
-	// replace + with %20 to match JavaScript's encodeURIComponent
-	return strings.ReplaceAll(escaped, "+", "%20")
 }
 
 type Dimensions struct {

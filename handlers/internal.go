@@ -104,40 +104,65 @@ func (h *InternalHandler) VerifyFile(c fiber.Ctx) error {
 	var newPath = ""
 	if pendingFile.Type == utils.ProfileBannersCategory || pendingFile.Type == utils.AvatarsCategory {
 		if pendingFile.Type == utils.ProfileBannersCategory {
-			newPath = "/profile_banners/"
+			newPath = "profile_banners/"
 		} else {
-			newPath = "/avatars/"
+			newPath = "avatars/"
 		}
 
 		newPath += strconv.FormatInt(groupId, 10) + "/"
 		newPath += pendingFile.Filename
 	}
 	if pendingFile.Type == utils.EmojisCategory {
-		newPath = "/emojis/" + pendingFile.Filename
+		newPath = "emojis/" + pendingFile.Filename
 	}
 	if pendingFile.Type == utils.AttachmentsCategory {
 		origName := filepath.Base(pendingFile.OriginalFilename)
 		origExt := filepath.Ext(pendingFile.OriginalFilename)
 		origNameWithoutExt := strings.TrimSuffix(origName, origExt)
-		newPath = "/attachments/" + strconv.FormatInt(groupId, 10) + "/" + strconv.FormatInt(fileId, 10) + "/" + origNameWithoutExt + filepath.Ext(pendingFile.Filename)
+		newPath = "attachments/" + strconv.FormatInt(groupId, 10) + "/" + strconv.FormatInt(fileId, 10) + "/" + origNameWithoutExt + filepath.Ext(pendingFile.Filename)
 	}
 
 	if newPath == "" {
 		return fiber.NewError(fiber.StatusUnauthorized, "Invalid Category type")
 	}
 
-	err = os.MkdirAll(filepath.Dir(h.Env.ProjectRoot+"/public"+newPath), 0755)
+	err = os.MkdirAll(filepath.Dir(h.Env.ProjectRoot+"/public/"+newPath), 0755)
 	if err != nil {
 		return fiber.NewError(fiber.StatusInternalServerError, "Failed to create directory.")
 	}
 
-	err = os.Rename(h.Env.ProjectRoot+"/"+pendingFile.Path, h.Env.ProjectRoot+"/public"+newPath)
+	err = os.Rename(h.Env.ProjectRoot+"/"+pendingFile.Path, h.Env.ProjectRoot+"/public/"+newPath)
 	if err != nil {
 		return fiber.NewError(fiber.StatusInternalServerError, "Failed to rename file.")
 	}
 
-	return c.JSON(fiber.Map{
-		"newPath": newPath,
-		"file":    pendingFile,
-	})
+	name := filepath.Base(newPath)
+	Ext := filepath.Ext(name)
+	nameWithoutExt := strings.TrimSuffix(name, Ext)
+
+	path := filepath.Dir(newPath) + "/" + utils.EncodeURIComponent(nameWithoutExt) + Ext
+
+	if pendingFile.Animated {
+		path += "#a"
+	}
+
+	json := fiber.Map{
+		"fileId":     strconv.FormatInt(pendingFile.FileId, 10),
+		"path":       strings.ReplaceAll(path, "\\", "/"),
+		"filesize":   pendingFile.FileSize,
+		"animated":   pendingFile.Animated,
+		"mimetype":   pendingFile.MimeType,
+		"compressed": pendingFile.ImageCompressed,
+	}
+	if pendingFile.Duration > 0 {
+		json["duration"] = pendingFile.Duration
+	}
+	if pendingFile.Height > 0 {
+		json["height"] = pendingFile.Height
+	}
+	if pendingFile.Width > 0 {
+		json["width"] = pendingFile.Width
+	}
+
+	return c.JSON(json)
 }
