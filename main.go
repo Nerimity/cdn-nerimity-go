@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"runtime"
 
+	"github.com/cshum/vipsgen/vips"
 	"github.com/gofiber/fiber/v3"
 )
 
@@ -28,6 +29,9 @@ func main() {
 	database := database.NewDatabaseService(env.DatabaseUrl)
 	utils.StartDeleteExpiredFiles(database)
 
+	vips.Startup(nil)
+	defer vips.Shutdown()
+
 	app := fiber.New(fiber.Config{
 		StreamRequestBody: true,
 	})
@@ -39,6 +43,7 @@ func main() {
 	contentHandler := handlers.NewContentHandler(&handlers.ContentHandler{Env: env})
 	uploadHandler := handlers.NewUploadHandler(&handlers.UploadHandler{Env: env, Flake: flake, Jwt: jwt, PendingFilesManager: pendingFilesManager})
 	internalHandler := handlers.NewInternalHandler(&handlers.InternalHandler{Env: env, Jwt: jwt, PendingFileManager: pendingFilesManager, Database: database})
+	proxyHandler := handlers.NewProxyHandler(&handlers.ProxyHandler{Env: env})
 
 	app.Get("/attachments/*", contentHandler.GetContent)
 	app.Get("/emojis/*", contentHandler.GetContent)
@@ -50,6 +55,8 @@ func main() {
 	app.Post("/avatars/:groupId", uploadHandler.UploadFile)
 	app.Post("/profile_banners/:groupId", uploadHandler.UploadFile)
 	app.Post("/emojis", uploadHandler.UploadFile)
+
+	app.Get("/proxy-dimensions", proxyHandler.GetImageDimensions)
 
 	app.Post("/internal/generate-token", internalHandler.GenerateToken)
 	app.Post("/internal/verify-file", internalHandler.VerifyFile)
