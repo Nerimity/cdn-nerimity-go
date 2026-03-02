@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"cdn_nerimity_go/config"
+	"cdn_nerimity_go/utils"
 	"context"
 	"errors"
 	"io"
@@ -10,11 +11,12 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"strings"
+	"strconv"
 	"time"
 
 	"github.com/cshum/vipsgen/vips"
 	"github.com/gofiber/fiber/v3"
+	"github.com/gofiber/fiber/v3/middleware/proxy"
 )
 
 type ProxyHandler struct {
@@ -104,6 +106,25 @@ func (h *ProxyHandler) GetImageDimensions(c fiber.Ctx) error {
 	})
 }
 
+func (h *ProxyHandler) GetProxy(c fiber.Ctx) error {
+	unsafeImageUrl, err := utils.DecodeURIComponent(c.Params("imageUrl"))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).SendString("Invalid url")
+	}
+
+	parsed, err := url.Parse(unsafeImageUrl)
+	if err != nil || !isValidScheme(parsed.Scheme) {
+		return c.Status(fiber.StatusBadRequest).SendString("Invalid URL")
+	}
+
+	if err := validateHost(parsed.Hostname()); err != nil {
+		return c.Status(fiber.StatusBadRequest).SendString("Blocked host")
+	}
+
+	return handlePublicProxyImage(c, unsafeImageUrl)
+
+}
+
 func isValidScheme(scheme string) bool {
 	return scheme == "http" || scheme == "https"
 }
@@ -123,8 +144,7 @@ func validateHost(host string) error {
 }
 
 func isPrivateIP(ip net.IP) bool {
-	if ip.IsLoopback() ||
-		ip.IsPrivate() ||
+	if ip.IsPrivate() ||
 		ip.IsLinkLocalUnicast() ||
 		ip.IsLinkLocalMulticast() {
 		return true
@@ -137,33 +157,15 @@ func isPrivateIP(ip net.IP) bool {
 	return false
 }
 
-// func shouldProxyImage(c fiber.Ctx, finalPath string, size int64) bool {
-// 	ext := strings.ToLower(filepath.Ext(finalPath))
-// 	fileSizeMB := size / (1024 * 1024) // size in MB
-// 	var isImageFileSize = fileSizeMB <= 20
-// 	var hasTransformParams = c.Query("size") != "" || c.Query("type") != ""
-
-// 	return utils.IsImage(ext) && isImageFileSize && hasTransformParams
-
-// }
-
-// func handleProxyImage(c fiber.Ctx, finalPath string) error {
-// 	imageType := c.Query("type")
-// 	size := c.Query("size")
-// 	var static = imageType == "webp"
-// 	var parsedSize = 0
-// 	if size != "" {
-// 		parsedSize, _ = strconv.Atoi(size)
-// 	}
-// 	var proxyURL = utils.GenerateBasicImageProxyURL(utils.BasicImageProxyOptions{URL: finalPath, IsLocalURL: true, Static: static, Size: parsedSize})
-
-// 	return proxy.Do(c, proxyURL)
-// }
-
-func isUrl(url string) bool {
-	if strings.HasPrefix(url, "https://") || strings.HasPrefix(url, "http://") {
-		return true
+func handlePublicProxyImage(c fiber.Ctx, finalPath string) error {
+	imageType := c.Query("type")
+	size := c.Query("size")
+	var static = imageType == "webp"
+	var parsedSize = 0
+	if size != "" {
+		parsedSize, _ = strconv.Atoi(size)
 	}
+	var proxyURL = utils.GenerateBasicImageProxyURL(utils.BasicImageProxyOptions{URL: finalPath, IsLocalURL: false, Static: static, Size: parsedSize})
 
-	return false
+	return proxy.Do(c, proxyURL)
 }

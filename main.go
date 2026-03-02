@@ -57,6 +57,7 @@ func main() {
 	app.Post("/emojis", uploadHandler.UploadFile)
 
 	app.Get("/proxy-dimensions", proxyHandler.GetImageDimensions)
+	app.Get("/proxy/:imageUrl/:filename", proxyHandler.GetProxy)
 
 	app.Post("/internal/generate-token", internalHandler.GenerateToken)
 	app.Post("/internal/verify-file", internalHandler.VerifyFile)
