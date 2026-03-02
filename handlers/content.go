@@ -52,7 +52,6 @@ func (h *ContentHandler) GetContent(c fiber.Ctx) error {
 		return handleProxyImage(c, finalPath)
 	}
 
-	println("Serving file:", finalPath)
 	return serveFile(c, finalPath)
 }
 
@@ -116,7 +115,6 @@ func handleProxyImage(c fiber.Ctx, finalPath string) error {
 		parsedSize, _ = strconv.Atoi(size)
 	}
 	var proxyURL = utils.GenerateBasicImageProxyURL(utils.BasicImageProxyOptions{URL: finalPath, IsLocalURL: true, Static: static, Size: parsedSize})
-	println("Processing Image", proxyURL)
 
 	return proxy.Do(c, proxyURL)
 }

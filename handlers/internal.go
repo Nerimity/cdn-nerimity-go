@@ -4,8 +4,10 @@ import (
 	"cdn_nerimity_go/config"
 	"cdn_nerimity_go/security"
 	"cdn_nerimity_go/utils"
-	"fmt"
+	"os"
+	"path/filepath"
 	"strconv"
+	"strings"
 
 	"github.com/gofiber/fiber/v3"
 )
@@ -43,10 +45,8 @@ func (h *InternalHandler) GenerateToken(c fiber.Ctx) error {
 
 	token, err := h.Jwt.GenerateToken(parsedId)
 	if err != nil {
-		return fiber.NewError(fiber.StatusInternalServerError, fmt.Sprintf("Failed to generate token: %s", err.Error()))
+		return fiber.NewError(fiber.StatusInternalServerError, "Failed to generate token")
 	}
-
-	println(token)
 
 	return c.JSON(fiber.Map{
 		"token": token,
@@ -95,14 +95,49 @@ func (h *InternalHandler) VerifyFile(c fiber.Ctx) error {
 	}
 
 	if pendingFile.UserId != userId {
-		return fiber.NewError(fiber.StatusUnauthorized, "Unauthorized")
+		return fiber.NewError(fiber.StatusUnauthorized, "Invalid UserId")
 	}
-	println(groupId, pendingFile.GroupId)
 	if pendingFile.GroupId != 0 && pendingFile.GroupId != groupId {
-		return fiber.NewError(fiber.StatusUnauthorized, "Unauthorized")
+		return fiber.NewError(fiber.StatusUnauthorized, "Invalid GroupId")
+	}
+
+	var newPath = ""
+	if pendingFile.Type == utils.ProfileBannersCategory || pendingFile.Type == utils.AvatarsCategory {
+		if pendingFile.Type == utils.ProfileBannersCategory {
+			newPath = "/profile_banners/"
+		} else {
+			newPath = "/avatars/"
+		}
+
+		newPath += strconv.FormatInt(groupId, 10) + "/"
+		newPath += pendingFile.Filename
+	}
+	if pendingFile.Type == utils.EmojisCategory {
+		newPath = "/emojis/" + pendingFile.Filename
+	}
+	if pendingFile.Type == utils.AttachmentsCategory {
+		origName := filepath.Base(pendingFile.OriginalFilename)
+		origExt := filepath.Ext(pendingFile.OriginalFilename)
+		origNameWithoutExt := strings.TrimSuffix(origName, origExt)
+		newPath = "/attachments/" + strconv.FormatInt(groupId, 10) + "/" + strconv.FormatInt(fileId, 10) + "/" + origNameWithoutExt + filepath.Ext(pendingFile.Filename)
+	}
+
+	if newPath == "" {
+		return fiber.NewError(fiber.StatusUnauthorized, "Invalid Category type")
+	}
+
+	err = os.MkdirAll(filepath.Dir(h.Env.ProjectRoot+"/public"+newPath), 0755)
+	if err != nil {
+		return fiber.NewError(fiber.StatusInternalServerError, "Failed to create directory.")
+	}
+
+	err = os.Rename(h.Env.ProjectRoot+"/"+pendingFile.Path, h.Env.ProjectRoot+"/public"+newPath)
+	if err != nil {
+		return fiber.NewError(fiber.StatusInternalServerError, "Failed to rename file.")
 	}
 
 	return c.JSON(fiber.Map{
-		"file": pendingFile,
+		"newPath": newPath,
+		"file":    pendingFile,
 	})
 }

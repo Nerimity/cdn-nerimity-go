@@ -11,6 +11,7 @@ type Config struct {
 	ExternalEmbedSecret string
 	JwtSecret           string
 	InternalSecret      string
+	ProjectRoot         string
 }
 
 func LoadConfig() *Config {

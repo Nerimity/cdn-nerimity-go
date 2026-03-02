@@ -5,17 +5,23 @@ import (
 	"cdn_nerimity_go/handlers"
 	"cdn_nerimity_go/security"
 	"cdn_nerimity_go/utils"
+	"path/filepath"
+	"runtime"
 
 	"github.com/gofiber/fiber/v3"
 )
 
 func main() {
+	env := config.LoadConfig()
+
+	_, filename, _, _ := runtime.Caller(0)
+	env.ProjectRoot = filepath.Dir(filename)
+
 	pendingFilesManager := utils.NewPendingFilesManager()
 	pendingFilesManager.StartCleanup()
 	utils.FlushTempFiles()
 	// utils.StartFileCleanup()
 
-	env := config.LoadConfig()
 	flake := utils.NewFlake()
 	jwt := security.NewJWTService(env.JwtSecret)
 

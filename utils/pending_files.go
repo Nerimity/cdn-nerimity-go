@@ -3,6 +3,7 @@ package utils
 import (
 	"errors"
 	"os"
+	"strings"
 	"sync"
 	"time"
 )
@@ -17,6 +18,7 @@ const (
 )
 
 type PendingFile struct {
+	Filename         string
 	OriginalFilename string
 	FileId           int64
 	GroupId          int64
@@ -44,11 +46,19 @@ func NewPendingFilesManager() *PendingFilesManager {
 	}
 }
 
-func (m *PendingFilesManager) Add(file PendingFile) {
+func (m *PendingFilesManager) Add(file *PendingFile) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	m.store[file.FileId] = &file
+	fileCopy := *file
+
+	fileCopy.OriginalFilename = strings.Clone(file.OriginalFilename)
+	fileCopy.Filename = strings.Clone(file.Filename)
+	fileCopy.Path = strings.Clone(file.Path)
+	fileCopy.MimeType = strings.Clone(file.MimeType)
+	fileCopy.Type = FileCategory(strings.Clone(string(file.Type)))
+
+	m.store[file.FileId] = &fileCopy
 }
 
 func (m *PendingFilesManager) Verify(fileId int64) (*PendingFile, error) {
@@ -56,6 +66,7 @@ func (m *PendingFilesManager) Verify(fileId int64) (*PendingFile, error) {
 	defer m.mu.Unlock()
 
 	file, ok := m.store[fileId]
+
 	if !ok {
 		return nil, errors.New("File not found")
 	}

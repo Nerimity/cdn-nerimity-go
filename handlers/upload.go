@@ -98,7 +98,7 @@ func (h *UploadHandler) UploadFile(c fiber.Ctx) error {
 	}
 
 	pendingFile.ExpiresAt = time.Now().Add(1 * time.Minute)
-	h.PendingFilesManager.Add(*pendingFile)
+	h.PendingFilesManager.Add(pendingFile)
 	success = true
 	return c.JSON(fiber.Map{
 		"fileId": strconv.FormatInt(pendingFile.FileId, 10),
@@ -116,6 +116,7 @@ func handleImageMetadata(c fiber.Ctx, pendingFile *utils.PendingFile) error {
 	if err != nil {
 		return sendError(c, fiber.StatusInternalServerError, "Failed to get file info")
 	}
+	pendingFile.Filename = filepath.Base(pendingFile.Path)
 	pendingFile.Height = image.Height()
 	pendingFile.Width = image.Width()
 	pendingFile.Animated = image.Pages() > 1
@@ -241,7 +242,7 @@ func downloadAndReplaceImage(url, oldFilePath string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-
+	os.Chmod(newPath, 0644)
 	return newPath, nil
 }
 
@@ -327,15 +328,19 @@ func handleUpload(c fiber.Ctx, h *UploadHandler) (*utils.PendingFile, error) {
 	if written > MaxUploadSize {
 		return nil, sendError(c, fiber.StatusBadRequest, "File exceeds size limit")
 	}
+	os.Chmod(filePath, 0644)
 
-	return &utils.PendingFile{
+	pendingFile := utils.PendingFile{
+		Filename:         filepath.Base(filePath),
 		OriginalFilename: safeFilename,
 		FileId:           fileId,
 		Path:             filePath,
 		Type:             attachmentCategory,
 		MimeType:         mimeType,
 		FileSize:         int(written),
-	}, nil
+	}
+
+	return &pendingFile, nil
 }
 
 func handleCompressImage(c fiber.Ctx, h *UploadHandler, pendingFile *utils.PendingFile) (bool, error) {
