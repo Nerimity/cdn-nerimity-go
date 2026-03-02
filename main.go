@@ -25,7 +25,7 @@ func main() {
 
 	flake := utils.NewFlake()
 	jwt := security.NewJWTService(env.JwtSecret)
-	database := database.NewDatabaseService("postgresql://postgres:123@localhost:5432/nerimity-cdn")
+	database := database.NewDatabaseService(env.DatabaseUrl)
 	utils.StartDeleteExpiredFiles(database)
 
 	app := fiber.New(fiber.Config{

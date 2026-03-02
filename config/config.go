@@ -12,6 +12,7 @@ type Config struct {
 	JwtSecret           string
 	InternalSecret      string
 	ProjectRoot         string
+	DatabaseUrl         string
 }
 
 func LoadConfig() *Config {
@@ -22,6 +23,7 @@ func LoadConfig() *Config {
 		ExternalEmbedSecret: getEnv("EXTERNAL_EMBED_SECRET", ""),
 		JwtSecret:           getEnv("JWT_SECRET", ""),
 		InternalSecret:      getEnv("INTERNAL_SECRET", ""),
+		DatabaseUrl:         getEnv("DATABASE_URL", ""),
 	}
 
 	if config.ExternalEmbedSecret == "" {
