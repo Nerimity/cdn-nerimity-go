@@ -2,6 +2,7 @@ package main
 
 import (
 	"cdn_nerimity_go/config"
+	"cdn_nerimity_go/database"
 	"cdn_nerimity_go/handlers"
 	"cdn_nerimity_go/security"
 	"cdn_nerimity_go/utils"
@@ -24,6 +25,8 @@ func main() {
 
 	flake := utils.NewFlake()
 	jwt := security.NewJWTService(env.JwtSecret)
+	database := database.NewDatabaseService("postgresql://postgres:123@localhost:5432/nerimity-cdn")
+	utils.StartDeleteExpiredFiles(database)
 
 	app := fiber.New(fiber.Config{
 		StreamRequestBody: true,
@@ -35,7 +38,7 @@ func main() {
 
 	contentHandler := handlers.NewContentHandler(&handlers.ContentHandler{Env: env})
 	uploadHandler := handlers.NewUploadHandler(&handlers.UploadHandler{Env: env, Flake: flake, Jwt: jwt, PendingFilesManager: pendingFilesManager})
-	internalHandler := handlers.NewInternalHandler(&handlers.InternalHandler{Env: env, Jwt: jwt, PendingFileManager: pendingFilesManager})
+	internalHandler := handlers.NewInternalHandler(&handlers.InternalHandler{Env: env, Jwt: jwt, PendingFileManager: pendingFilesManager, Database: database})
 
 	app.Get("/attachments/*", contentHandler.GetContent)
 	app.Get("/emojis/*", contentHandler.GetContent)

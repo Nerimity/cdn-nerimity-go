@@ -1,4 +1,4 @@
-CREATE TABLE expire_file (
+CREATE TABLE "ExpireFile" (
     "fileId" TEXT NOT NULL,
     "groupId" TEXT NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,

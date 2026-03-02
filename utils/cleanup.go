@@ -1,9 +1,11 @@
 package utils
 
 import (
+	"cdn_nerimity_go/database"
 	"log"
 	"os"
 	"path/filepath"
+	"strconv"
 	"time"
 )
 
@@ -67,4 +69,52 @@ func FlushTempFiles() {
 	if err != nil {
 		panic(err)
 	}
+}
+
+func deleteExpiredFiles(databaseService *database.DatabaseService) {
+	expiredFiles, err := databaseService.GetExpiredFiles()
+	if err != nil {
+		log.Printf("Error getting expired files: %v", err)
+		return
+	}
+
+	fileIds := make([]int64, len(expiredFiles))
+
+	for i, file := range expiredFiles {
+		fileIds[i] = file.FileID
+
+		path := "public/attachments/" + strconv.FormatInt(file.GroupID, 10) + "/" + strconv.FormatInt(file.FileID, 10)
+		if err != nil {
+			_, err := os.Stat(path)
+			if os.IsNotExist(err) {
+				continue
+			}
+			log.Printf("Error removing expired file %s: %v", path, err)
+			return
+		}
+		err := os.RemoveAll(path)
+		if err != nil {
+			log.Printf("Error removing expired file %s: %v", path, err)
+			return
+		}
+	}
+
+	err = databaseService.DeleteByFileIds(fileIds)
+	if err != nil {
+		log.Printf("Error deleting expired files: %v", err)
+		return
+	}
+}
+
+func StartDeleteExpiredFiles(databaseService *database.DatabaseService) {
+	interval := 1 * time.Minute
+
+	go func() {
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
+
+		for range ticker.C {
+			deleteExpiredFiles(databaseService)
+		}
+	}()
 }

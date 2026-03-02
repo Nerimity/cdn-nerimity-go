@@ -2,12 +2,15 @@ package handlers
 
 import (
 	"cdn_nerimity_go/config"
+	"cdn_nerimity_go/database"
 	"cdn_nerimity_go/security"
 	"cdn_nerimity_go/utils"
+	"log"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gofiber/fiber/v3"
 )
@@ -16,6 +19,7 @@ type InternalHandler struct {
 	Env                *config.Config
 	Jwt                *security.JWTService
 	PendingFileManager *utils.PendingFilesManager
+	Database           *database.DatabaseService
 }
 
 func NewInternalHandler(context *InternalHandler) *InternalHandler {
@@ -126,6 +130,19 @@ func (h *InternalHandler) VerifyFile(c fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusUnauthorized, "Invalid Category type")
 	}
 
+	var expireAt int64
+	if !pendingFile.ImageCompressed {
+		createdAt, err := h.Database.AddExpire(fileId, groupId)
+		if err != nil {
+			log.Println(err)
+			return fiber.NewError(fiber.StatusInternalServerError, "Failed to add expire.")
+		}
+
+		futureTime := createdAt.Add(12 * time.Hour)
+		expireAt = futureTime.UnixMilli()
+
+	}
+
 	err = os.MkdirAll(filepath.Dir(h.Env.ProjectRoot+"/public/"+newPath), 0755)
 	if err != nil {
 		return fiber.NewError(fiber.StatusInternalServerError, "Failed to create directory.")
@@ -153,6 +170,9 @@ func (h *InternalHandler) VerifyFile(c fiber.Ctx) error {
 		"animated":   pendingFile.Animated,
 		"mimetype":   pendingFile.MimeType,
 		"compressed": pendingFile.ImageCompressed,
+	}
+	if expireAt > 0 {
+		json["expireAt"] = expireAt
 	}
 	if pendingFile.Duration > 0 {
 		json["duration"] = pendingFile.Duration
