@@ -109,12 +109,12 @@ func handleImageMetadata(c fiber.Ctx, pendingFile *utils.PendingFile) error {
 	pendingFile.ImageCompressed = true
 	image, err := vips.NewImageFromFile(pendingFile.Path, nil)
 	if err != nil {
-		return sendError(c, fiber.StatusInternalServerError, "Failed to open image")
+		return utils.SendError(c, fiber.StatusInternalServerError, "Failed to open image")
 	}
 	defer image.Close()
 	fileInfo, err := os.Stat(pendingFile.Path)
 	if err != nil {
-		return sendError(c, fiber.StatusInternalServerError, "Failed to get file info")
+		return utils.SendError(c, fiber.StatusInternalServerError, "Failed to get file info")
 	}
 	pendingFile.Filename = filepath.Base(pendingFile.Path)
 	pendingFile.Height = image.Height()
@@ -124,13 +124,6 @@ func handleImageMetadata(c fiber.Ctx, pendingFile *utils.PendingFile) error {
 	pendingFile.MimeType = "image/webp"
 
 	return nil
-}
-
-func sendError(c fiber.Ctx, status int, message string) error {
-	c.Status(status).JSON(fiber.Map{
-		"message": message,
-	})
-	return fiber.NewError(status, message)
 }
 
 func compressImage(c fiber.Ctx, filePath string, category utils.FileCategory) (string, error) {
@@ -249,13 +242,13 @@ func downloadAndReplaceImage(url, oldFilePath string) (string, error) {
 func auth(c fiber.Ctx, h *UploadHandler) (*security.Claims, error) {
 	token := c.Get("Authorization")
 	if token == "" {
-		return nil, sendError(c, fiber.StatusUnauthorized, "Unauthorized")
+		return nil, utils.SendError(c, fiber.StatusUnauthorized, "Unauthorized")
 	}
 
 	claims, err := h.Jwt.VerifyToken(token)
 
 	if err != nil {
-		return nil, sendError(c, fiber.StatusUnauthorized, "Unauthorized")
+		return nil, utils.SendError(c, fiber.StatusUnauthorized, "Unauthorized")
 	}
 	return claims, nil
 
@@ -272,26 +265,26 @@ func validate(c fiber.Ctx, h *UploadHandler) error {
 	isImage := utils.IsImage(filepath.Ext(filename)) && utils.IsMimeImage(fileContentType)
 
 	if contentLength > MaxUploadSize {
-		return sendError(c, fiber.StatusBadRequest, "File too large")
+		return utils.SendError(c, fiber.StatusBadRequest, "File too large")
 	}
 	if contentLength <= 0 {
-		return sendError(c, fiber.StatusBadRequest, "Invalid content length")
+		return utils.SendError(c, fiber.StatusBadRequest, "Invalid content length")
 	}
 
 	shouldCompressImage := isImage && contentLength <= MaxImageSize
 	if attachmentCategory != "attachments" {
 		if !isImage {
-			return sendError(c, fiber.StatusBadRequest, "Invalid file type")
+			return utils.SendError(c, fiber.StatusBadRequest, "Invalid file type")
 		}
 		if !shouldCompressImage {
-			return sendError(c, fiber.StatusBadRequest, "Image exceeds size limit")
+			return utils.SendError(c, fiber.StatusBadRequest, "Image exceeds size limit")
 		}
 	}
 
 	if groupId != "" {
 		_, err := strconv.ParseInt(groupId, 10, 64)
 		if err != nil {
-			return sendError(c, fiber.StatusBadRequest, "Invalid group id")
+			return utils.SendError(c, fiber.StatusBadRequest, "Invalid group id")
 		}
 	}
 
@@ -312,7 +305,7 @@ func handleUpload(c fiber.Ctx, h *UploadHandler) (*utils.PendingFile, error) {
 	filePath := "temp/" + strconv.FormatInt(fileId, 10) + ext
 	file, err := os.Create(filePath)
 	if err != nil {
-		return nil, sendError(c, fiber.StatusInternalServerError, "Failed to create file")
+		return nil, utils.SendError(c, fiber.StatusInternalServerError, "Failed to create file")
 	}
 	defer file.Close()
 
@@ -322,11 +315,11 @@ func handleUpload(c fiber.Ctx, h *UploadHandler) (*utils.PendingFile, error) {
 	limitSrc := io.LimitReader(src, MaxUploadSize+1)
 	written, err := io.CopyBuffer(struct{ io.Writer }{file}, limitSrc, buf)
 	if err != nil {
-		return nil, sendError(c, fiber.StatusInternalServerError, "Failed to write file")
+		return nil, utils.SendError(c, fiber.StatusInternalServerError, "Failed to write file")
 	}
 
 	if written > MaxUploadSize {
-		return nil, sendError(c, fiber.StatusBadRequest, "File exceeds size limit")
+		return nil, utils.SendError(c, fiber.StatusBadRequest, "File exceeds size limit")
 	}
 	os.Chmod(filePath, 0644)
 
@@ -346,7 +339,7 @@ func handleUpload(c fiber.Ctx, h *UploadHandler) (*utils.PendingFile, error) {
 func handleCompressImage(c fiber.Ctx, h *UploadHandler, pendingFile *utils.PendingFile) (bool, error) {
 	newPath, err := compressImage(c, pendingFile.Path, pendingFile.Type)
 	if err != nil && pendingFile.Type != utils.AttachmentsCategory {
-		return false, sendError(c, fiber.StatusInternalServerError, "Failed to compress image")
+		return false, utils.SendError(c, fiber.StatusInternalServerError, "Failed to compress image")
 	}
 
 	if err == nil {
@@ -363,7 +356,7 @@ func getMediaDuration(path string) (int, error) {
 
 	data, err := ffprobe.ProbeURL(ctx, path)
 	if err != nil {
-		return 0, sendError(nil, fiber.StatusInternalServerError, "Failed to get media duration")
+		return 0, utils.SendError(nil, fiber.StatusInternalServerError, "Failed to get media duration")
 	}
 
 	return int(data.Format.Duration().Milliseconds()), nil

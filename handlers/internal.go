@@ -34,7 +34,7 @@ func (h *InternalHandler) GenerateToken(c fiber.Ctx) error {
 	authHeader := c.Get("Authorization")
 
 	if authHeader != h.Env.InternalSecret {
-		return fiber.NewError(fiber.StatusUnauthorized, "Unauthorized")
+		return utils.SendError(c, fiber.StatusUnauthorized, "Unauthorized")
 	}
 	body := new(GenerateTokenRequest)
 
@@ -44,12 +44,12 @@ func (h *InternalHandler) GenerateToken(c fiber.Ctx) error {
 
 	parsedId, err := strconv.ParseInt(body.UserId, 10, 64)
 	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, "Invalid user Id")
+		return utils.SendError(c, fiber.StatusBadRequest, "Invalid user Id")
 	}
 
 	token, err := h.Jwt.GenerateToken(parsedId)
 	if err != nil {
-		return fiber.NewError(fiber.StatusInternalServerError, "Failed to generate token")
+		return utils.SendError(c, fiber.StatusInternalServerError, "Failed to generate token")
 	}
 
 	return c.JSON(fiber.Map{
@@ -67,7 +67,7 @@ func (h *InternalHandler) VerifyFile(c fiber.Ctx) error {
 	authHeader := c.Get("Authorization")
 
 	if authHeader != h.Env.InternalSecret {
-		return fiber.NewError(fiber.StatusUnauthorized, "Unauthorized")
+		return utils.SendError(c, fiber.StatusUnauthorized, "Unauthorized")
 	}
 	body := new(VerifyFileRequest)
 
@@ -77,32 +77,32 @@ func (h *InternalHandler) VerifyFile(c fiber.Ctx) error {
 
 	userId, err := strconv.ParseInt(body.UserId, 10, 64)
 	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, "Invalid user Id")
+		return utils.SendError(c, fiber.StatusBadRequest, "Invalid user Id")
 	}
 
 	fileId, err := strconv.ParseInt(body.FileId, 10, 64)
 	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, "Invalid file Id")
+		return utils.SendError(c, fiber.StatusBadRequest, "Invalid file Id")
 	}
 
 	groupId := int64(0)
 	if body.GroupId != "" {
 		groupId, err = strconv.ParseInt(body.GroupId, 10, 64)
 		if err != nil {
-			return fiber.NewError(fiber.StatusBadRequest, "Invalid group Id")
+			return utils.SendError(c, fiber.StatusBadRequest, "Invalid group Id")
 		}
 	}
 
 	pendingFile, err := h.PendingFileManager.Verify(fileId)
 	if pendingFile == nil {
-		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		return utils.SendError(c, fiber.StatusBadRequest, err.Error())
 	}
 
 	if pendingFile.UserId != userId {
-		return fiber.NewError(fiber.StatusUnauthorized, "Invalid UserId")
+		return utils.SendError(c, fiber.StatusUnauthorized, "Invalid UserId")
 	}
 	if pendingFile.GroupId != 0 && pendingFile.GroupId != groupId {
-		return fiber.NewError(fiber.StatusUnauthorized, "Invalid GroupId")
+		return utils.SendError(c, fiber.StatusUnauthorized, "Invalid GroupId")
 	}
 
 	var newPath = ""
@@ -127,7 +127,7 @@ func (h *InternalHandler) VerifyFile(c fiber.Ctx) error {
 	}
 
 	if newPath == "" {
-		return fiber.NewError(fiber.StatusUnauthorized, "Invalid Category type")
+		return utils.SendError(c, fiber.StatusUnauthorized, "Invalid Category type")
 	}
 
 	var expireAt int64
@@ -135,7 +135,7 @@ func (h *InternalHandler) VerifyFile(c fiber.Ctx) error {
 		createdAt, err := h.Database.AddExpire(fileId, groupId)
 		if err != nil {
 			log.Println(err)
-			return fiber.NewError(fiber.StatusInternalServerError, "Failed to add expire.")
+			return utils.SendError(c, fiber.StatusInternalServerError, "Failed to add expire.")
 		}
 
 		futureTime := createdAt.Add(12 * time.Hour)
@@ -145,12 +145,12 @@ func (h *InternalHandler) VerifyFile(c fiber.Ctx) error {
 
 	err = os.MkdirAll(filepath.Dir(h.Env.ProjectRoot+"/public/"+newPath), 0755)
 	if err != nil {
-		return fiber.NewError(fiber.StatusInternalServerError, "Failed to create directory.")
+		return utils.SendError(c, fiber.StatusInternalServerError, "Failed to create directory.")
 	}
 
 	err = os.Rename(h.Env.ProjectRoot+"/"+pendingFile.Path, h.Env.ProjectRoot+"/public/"+newPath)
 	if err != nil {
-		return fiber.NewError(fiber.StatusInternalServerError, "Failed to rename file.")
+		return utils.SendError(c, fiber.StatusInternalServerError, "Failed to rename file.")
 	}
 
 	name := filepath.Base(newPath)
@@ -191,7 +191,7 @@ func (h *InternalHandler) DeleteByFileIds(c fiber.Ctx) error {
 	authHeader := c.Get("Authorization")
 
 	if authHeader != h.Env.InternalSecret {
-		return fiber.NewError(fiber.StatusUnauthorized, "Unauthorized")
+		return utils.SendError(c, fiber.StatusUnauthorized, "Unauthorized")
 	}
 
 	var body struct {
@@ -227,7 +227,7 @@ func (h *InternalHandler) DeleteAttachmentsByGroupId(c fiber.Ctx) error {
 	authHeader := c.Get("Authorization")
 
 	if authHeader != h.Env.InternalSecret {
-		return fiber.NewError(fiber.StatusUnauthorized, "Unauthorized")
+		return utils.SendError(c, fiber.StatusUnauthorized, "Unauthorized")
 	}
 
 	groupId := c.Params("groupId")
@@ -243,7 +243,7 @@ func (h *InternalHandler) DeleteAttachmentsByGroupId(c fiber.Ctx) error {
 	entries, err := f.ReadDir(DELETE_BATCH)
 
 	if err != nil {
-		return fiber.NewError(fiber.StatusInternalServerError, "Error during iteration.")
+		return utils.SendError(c, fiber.StatusInternalServerError, "Error during iteration.")
 	}
 
 	for _, entry := range entries {
@@ -263,7 +263,7 @@ func (h *InternalHandler) DeleteFile(c fiber.Ctx) error {
 	authHeader := c.Get("Authorization")
 
 	if authHeader != h.Env.InternalSecret {
-		return fiber.NewError(fiber.StatusUnauthorized, "Unauthorized")
+		return utils.SendError(c, fiber.StatusUnauthorized, "Unauthorized")
 	}
 
 	var body struct {
