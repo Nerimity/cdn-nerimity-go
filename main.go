@@ -52,17 +52,21 @@ func main() {
 	app.Use(func(c fiber.Ctx) error {
 		origin := c.Get("Origin")
 
-		if origin != "" {
-			allowedOrigin := "https://nerimity.com"
+		allowedOrigins := map[string]bool{
+			"https://nerimity.com":           true,
+			"http://local.nerimity.com:3000": true,
+		}
 
-			c.Set("Access-Control-Allow-Origin", allowedOrigin)
+		if origin != "" && allowedOrigins[origin] {
+			c.Set("Access-Control-Allow-Origin", origin)
 		} else {
 			c.Set("Access-Control-Allow-Origin", "https://nerimity.com")
 		}
 
 		if c.Method() == fiber.MethodOptions {
-			c.Set("Access-Control-Allow-Headers", "content-type")
-			return c.SendStatus(fiber.StatusOK)
+			c.Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+			c.Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, PATCH, OPTIONS")
+			return c.SendStatus(fiber.StatusNoContent)
 		}
 
 		return c.Next()
