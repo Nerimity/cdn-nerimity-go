@@ -98,7 +98,7 @@ func GenerateImageProxyURL(opts ImageProxyOptions) (string, error) {
 	)
 
 	if opts.Size.ResizeType == ResizeTypeFit {
-		parts = append(parts, "rs:fit:"+fmt.Sprintf("%d:%d", targetDims.Width, targetDims.Height))
+		parts = append(parts, "rs:fit:"+fmt.Sprintf("%d:%d", opts.Size.Width, opts.Size.Height))
 	}
 	if opts.Size.ResizeType == ResizeTypeFill {
 		parts = append(parts, "rs:fill:"+fmt.Sprintf("%d:%d", targetDims.Width, targetDims.Height))
