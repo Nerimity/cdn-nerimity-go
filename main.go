@@ -36,6 +36,25 @@ func main() {
 		StreamRequestBody: true,
 	})
 
+	app.Use(func(c fiber.Ctx) error {
+		origin := c.Get("Origin")
+
+		if origin != "" {
+			allowedOrigin := "https://nerimity.com"
+
+			c.Set("Access-Control-Allow-Origin", allowedOrigin)
+		} else {
+			c.Set("Access-Control-Allow-Origin", "https://nerimity.com")
+		}
+
+		if c.Method() == fiber.MethodOptions {
+			c.Set("Access-Control-Allow-Headers", "content-type")
+			return c.SendStatus(fiber.StatusOK)
+		}
+
+		return c.Next()
+	})
+
 	app.Get("/", func(c fiber.Ctx) error {
 		return c.SendString("Nerimity CDN Online.")
 	})
