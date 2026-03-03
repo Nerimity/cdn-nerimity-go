@@ -130,6 +130,7 @@ func DeleteRecursiveEmpty(filePath string) error {
 
 	err := DeleteWithRetry(absFilePath, 5)
 	if err != nil {
+		println("debug", err.Error())
 		return err
 	}
 
@@ -158,9 +159,6 @@ func DeleteRecursiveEmpty(filePath string) error {
 func DeleteWithRetry(path string, attempts int) error {
 	for i := 0; i < attempts; i++ {
 		err := os.Remove(path)
-		if err != nil {
-			println("status", err.Error())
-		}
 		if err == nil || errors.Is(err, os.ErrNotExist) {
 			return nil
 		}
