@@ -295,6 +295,10 @@ func handleUpload(c fiber.Ctx, h *UploadHandler) (*utils.PendingFile, error) {
 	filename := c.Get("File-Name")
 	mimeType := string(c.Request().Header.ContentType())
 
+	if strings.HasPrefix(mimeType, fiber.MIMEMultipartForm) {
+		return nil, utils.SendError(c, fiber.StatusBadRequest, "Direct binary upload expected, but multipart/form-data was sent.")
+	}
+
 	attachmentCategory := utils.FileCategory(strings.ToLower(strings.Split(c.Path(), "/")[1]))
 
 	safeFilename := utils.SafeFilename(filename)
