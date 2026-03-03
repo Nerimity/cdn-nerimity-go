@@ -128,9 +128,9 @@ func DeleteRecursiveEmpty(filePath string) error {
 	absStopAt, _ := filepath.Abs(stopAt)
 	absFilePath, _ := filepath.Abs(filePath)
 
+	println("debug", absFilePath)
 	err := DeleteWithRetry(absFilePath, 5)
 	if err != nil {
-		println("debug", absFilePath, err.Error())
 		return err
 	}
 
