@@ -138,7 +138,7 @@ func (h *InternalHandler) VerifyFile(c fiber.Ctx) error {
 			return utils.SendError(c, fiber.StatusInternalServerError, "Failed to add expire.")
 		}
 
-		futureTime := createdAt.Add(12 * time.Hour)
+		futureTime := createdAt.Add(24 * time.Hour)
 		expireAt = futureTime.UnixMilli()
 
 	}
