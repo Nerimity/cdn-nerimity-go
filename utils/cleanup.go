@@ -130,7 +130,7 @@ func DeleteRecursiveEmpty(filePath string) error {
 
 	err := DeleteWithRetry(absFilePath, 5)
 	if err != nil {
-		println("debug", err.Error())
+		println("debug", absFilePath, err.Error())
 		return err
 	}
 
