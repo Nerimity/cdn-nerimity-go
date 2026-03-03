@@ -64,7 +64,7 @@ func main() {
 		}
 
 		if c.Method() == fiber.MethodOptions {
-			c.Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+			c.Set("Access-Control-Allow-Headers", "Content-Type, Authorization, File-Name")
 			c.Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, PATCH, OPTIONS")
 			return c.SendStatus(fiber.StatusNoContent)
 		}
