@@ -2,6 +2,7 @@ package utils
 
 import (
 	"cdn_nerimity_go/database"
+	"errors"
 	"log"
 	"os"
 	"path/filepath"
@@ -117,4 +118,55 @@ func StartDeleteExpiredFiles(databaseService *database.DatabaseService) {
 			deleteExpiredFiles(databaseService)
 		}
 	}()
+}
+
+func DeleteRecursiveEmpty(filePath string) error {
+	println("DELETING", filePath)
+	const stopAt = "public"
+
+	filePath = filepath.Clean(filePath)
+	absStopAt, _ := filepath.Abs(stopAt)
+	absFilePath, _ := filepath.Abs(filePath)
+
+	err := DeleteWithRetry(absFilePath, 5)
+	if err != nil {
+		return err
+	}
+
+	currentDir := filepath.Dir(absFilePath)
+
+	for {
+		if currentDir == absStopAt || currentDir == "." || currentDir == "/" {
+			break
+		}
+
+		err = DeleteWithRetry(currentDir, 3)
+		if err != nil {
+			return nil
+		}
+
+		nextDir := filepath.Dir(currentDir)
+		if nextDir == currentDir {
+			break
+		}
+		currentDir = nextDir
+	}
+
+	return nil
+}
+
+func DeleteWithRetry(path string, attempts int) error {
+	for i := 0; i < attempts; i++ {
+		err := os.Remove(path)
+		if err != nil {
+			println("status", err.Error())
+		}
+		if err == nil || errors.Is(err, os.ErrNotExist) {
+			return nil
+		}
+
+		time.Sleep(time.Duration(i+1) * 100 * time.Millisecond)
+	}
+
+	return errors.New("path is locked or busy after multiple attempts")
 }

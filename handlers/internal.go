@@ -186,3 +186,115 @@ func (h *InternalHandler) VerifyFile(c fiber.Ctx) error {
 
 	return c.JSON(json)
 }
+
+func (h *InternalHandler) DeleteByFileIds(c fiber.Ctx) error {
+	authHeader := c.Get("Authorization")
+
+	if authHeader != h.Env.InternalSecret {
+		return fiber.NewError(fiber.StatusUnauthorized, "Unauthorized")
+	}
+
+	var body struct {
+		Paths []string `json:"paths"`
+	}
+
+	if err := c.Bind().Body(&body); err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": "Invalid JSON"})
+	}
+
+	if body.Paths == nil {
+		return c.Status(400).JSON(fiber.Map{"error": "Missing paths"})
+	}
+
+	for _, path := range body.Paths {
+		if path == "" {
+			continue
+		}
+
+		if strings.HasSuffix(path, "#a") {
+			path = strings.TrimSuffix(path, "#a")
+		}
+		utils.DeleteRecursiveEmpty(h.Env.ProjectRoot + "/public/" + path)
+	}
+
+	return c.JSON(fiber.Map{
+		"status": "deleted",
+		"count":  len(body.Paths),
+	})
+}
+
+func (h *InternalHandler) DeleteAttachmentsByGroupId(c fiber.Ctx) error {
+	authHeader := c.Get("Authorization")
+
+	if authHeader != h.Env.InternalSecret {
+		return fiber.NewError(fiber.StatusUnauthorized, "Unauthorized")
+	}
+
+	groupId := c.Params("groupId")
+	DELETE_BATCH := 1000
+	groupPath := h.Env.ProjectRoot + "/public/attachments/" + groupId
+
+	f, err := os.Open(groupPath)
+	if err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": "Invalid Path", "type": "INVALID_PATH"})
+	}
+	defer f.Close()
+
+	entries, err := f.ReadDir(DELETE_BATCH)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusInternalServerError, "Error during iteration.")
+	}
+
+	for _, entry := range entries {
+		fullPath := filepath.Join(groupPath, entry.Name())
+		os.RemoveAll(fullPath)
+	}
+
+	os.Remove(groupPath)
+
+	return c.JSON(fiber.Map{
+		"status": "deleted",
+		"count":  len(entries),
+	})
+}
+
+func (h *InternalHandler) DeleteFile(c fiber.Ctx) error {
+	authHeader := c.Get("Authorization")
+
+	if authHeader != h.Env.InternalSecret {
+		return fiber.NewError(fiber.StatusUnauthorized, "Unauthorized")
+	}
+
+	var body struct {
+		Path string `json:"path"`
+	}
+
+	if err := c.Bind().Body(&body); err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": "Invalid JSON"})
+	}
+
+	if body.Path == "" {
+		return c.Status(400).JSON(fiber.Map{"error": "Missing path"})
+	}
+
+	if strings.HasSuffix(body.Path, "#a") {
+		body.Path = strings.TrimSuffix(body.Path, "#a")
+	}
+
+	decodedPath, err := utils.DecodeURIComponent(body.Path)
+	if err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": "Invalid path"})
+	}
+	fullPath := h.Env.ProjectRoot + "/public/" + decodedPath
+
+	err = utils.DeleteRecursiveEmpty(fullPath)
+
+	if err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": "Failed to delete file"})
+	}
+
+	return c.JSON(fiber.Map{
+		"status": "deleted",
+	})
+}

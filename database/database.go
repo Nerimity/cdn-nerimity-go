@@ -54,7 +54,7 @@ func (h *DatabaseService) GetExpiredFiles() ([]ExpireRecord, error) {
 	query := `
 		SELECT "fileId", "groupId", "createdAt" 
 		FROM "ExpireFile" 
-		WHERE "createdAt" <= NOW() - INTERVAL '12 hours'
+		WHERE "createdAt" <= NOW() - INTERVAL '24 hours'
 		LIMIT 100`
 
 	rows, err := h.conn.Query(context.Background(), query)

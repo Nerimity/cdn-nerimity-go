@@ -61,6 +61,9 @@ func main() {
 
 	app.Post("/internal/generate-token", internalHandler.GenerateToken)
 	app.Post("/internal/verify-file", internalHandler.VerifyFile)
+	app.Delete("/internal/batch", internalHandler.DeleteByFileIds)
+	app.Delete("/internal/attachments/:groupId/batch", internalHandler.DeleteAttachmentsByGroupId)
+	app.Delete("/internal/", internalHandler.DeleteFile)
 
 	app.Listen(":" + env.Port)
 
