@@ -121,14 +121,12 @@ func StartDeleteExpiredFiles(databaseService *database.DatabaseService) {
 }
 
 func DeleteRecursiveEmpty(filePath string) error {
-	println("DELETING", filePath)
 	const stopAt = "public"
 
 	filePath = filepath.Clean(filePath)
 	absStopAt, _ := filepath.Abs(stopAt)
 	absFilePath, _ := filepath.Abs(filePath)
 
-	println("debug", absFilePath)
 	err := DeleteWithRetry(absFilePath, 5)
 	if err != nil {
 		return err
