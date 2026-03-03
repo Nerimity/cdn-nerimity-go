@@ -6,6 +6,7 @@ import (
 	"cdn_nerimity_go/handlers"
 	"cdn_nerimity_go/security"
 	"cdn_nerimity_go/utils"
+	"errors"
 	"path/filepath"
 	"runtime"
 
@@ -34,6 +35,18 @@ func main() {
 
 	app := fiber.New(fiber.Config{
 		StreamRequestBody: true,
+		ErrorHandler: func(c fiber.Ctx, err error) error {
+			code := fiber.StatusInternalServerError
+
+			var e *fiber.Error
+			if errors.As(err, &e) {
+				code = e.Code
+			}
+
+			return c.Status(code).JSON(fiber.Map{
+				"message": err.Error(),
+			})
+		},
 	})
 
 	app.Use(func(c fiber.Ctx) error {
