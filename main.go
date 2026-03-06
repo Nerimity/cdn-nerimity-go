@@ -55,6 +55,7 @@ func main() {
 		allowedOrigins := map[string]bool{
 			"https://nerimity.com":           true,
 			"http://local.nerimity.com:3000": true,
+			"https://latest.nerimity.com":    true,
 		}
 
 		if origin != "" && allowedOrigins[origin] {
