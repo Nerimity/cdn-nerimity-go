@@ -35,7 +35,12 @@ const MaxUploadSize = 50 * 1024 * 1024
 const MaxImageSize = 12 * 1024 * 1024
 
 func (h *UploadHandler) UploadFile(c fiber.Ctx) error {
-	filename := c.Get("File-Name")
+	rawFilename := c.Get("File-Name")
+	var filename, err = utils.DecodeURIComponent(rawFilename)
+	if err != nil {
+		return utils.SendError(c, fiber.StatusBadRequest, "Invalid file name")
+	}
+
 	groupId := c.Params("groupId")
 	fileContentType := string(c.Request().Header.ContentType())
 
