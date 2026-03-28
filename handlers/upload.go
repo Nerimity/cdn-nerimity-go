@@ -261,7 +261,11 @@ func auth(c fiber.Ctx, h *UploadHandler) (*security.Claims, error) {
 
 func validate(c fiber.Ctx, h *UploadHandler) error {
 	contentLength := c.Request().Header.ContentLength()
-	filename := c.Get("File-Name")
+	rawFilename := c.Get("File-Name")
+	var filename, err = utils.DecodeURIComponent(rawFilename)
+	if err != nil {
+		return utils.SendError(c, fiber.StatusBadRequest, "Invalid file name")
+	}
 	fileContentType := string(c.Request().Header.ContentType())
 
 	groupId := c.Params("groupId")
@@ -297,7 +301,11 @@ func validate(c fiber.Ctx, h *UploadHandler) error {
 }
 
 func handleUpload(c fiber.Ctx, h *UploadHandler) (*utils.PendingFile, error) {
-	filename := c.Get("File-Name")
+	rawFilename := c.Get("File-Name")
+	var filename, err = utils.DecodeURIComponent(rawFilename)
+	if err != nil {
+		return nil, utils.SendError(c, fiber.StatusBadRequest, "Invalid file name")
+	}
 	mimeType := string(c.Request().Header.ContentType())
 
 	if strings.HasPrefix(mimeType, fiber.MIMEMultipartForm) {
