@@ -59,8 +59,15 @@ func cleanupOldFiles(dir string, ageThreshold time.Duration) {
 // }
 
 func FlushTempFiles() {
-	dir := "temp"
+	FlushTempFilesWithRoot(".")
+}
 
+func FlushTempFilesWithRoot(root string) {
+	flushDir(filepath.Join(root, "temp"))
+	flushDir(filepath.Join(root, "video-thumb-cache"))
+}
+
+func flushDir(dir string) {
 	err := os.RemoveAll(dir)
 	if err != nil {
 		panic(err)
@@ -116,6 +123,21 @@ func StartDeleteExpiredFiles(databaseService *database.DatabaseService) {
 
 		for range ticker.C {
 			deleteExpiredFiles(databaseService)
+		}
+	}()
+}
+
+func StartVideoThumbnailCleanup(root string) {
+	cacheDir := filepath.Join(root, "video-thumb-cache")
+	interval := 5 * time.Minute
+	maxAge := 12 * time.Hour
+
+	go func() {
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
+
+		for range ticker.C {
+			cleanupOldFiles(cacheDir, maxAge)
 		}
 	}()
 }
