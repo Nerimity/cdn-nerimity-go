@@ -83,7 +83,7 @@ func main() {
 	proxyHandler := handlers.NewProxyHandler(&handlers.ProxyHandler{Env: env})
 
 	// Video thumbnails
-	app.Get("/attachments/*/thumb", contentHandler.GetContentThumb)
+	app.Get("/attachments/*/thumb.webp", contentHandler.GetContentThumb)
 
 	app.Get("/attachments/*", contentHandler.GetContent)
 	app.Get("/emojis/*", contentHandler.GetContent)

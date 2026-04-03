@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"cdn_nerimity_go/config"
 	"cdn_nerimity_go/security"
@@ -75,12 +76,9 @@ func (h *ContentHandler) GetContent(c fiber.Ctx) error {
 }
 
 func (h *ContentHandler) GetContentThumb(c fiber.Ctx) error {
-	rawPath := c.Path() // "/attachments/xxx/thumb"
-	if !strings.HasSuffix(rawPath, "/thumb") {
-		return c.Status(fiber.StatusBadRequest).SendString("thumbnail endpoint requires /thumb suffix")
-	}
+	rawPath := c.Path() // "/attachments/xxx/thumb.webp"
 
-	filePath := strings.TrimSuffix(rawPath, "/thumb")
+	filePath := strings.TrimSuffix(rawPath, "/thumb.webp")
 	finalPath, err := resolveSafePath(filePath)
 	if err != nil {
 		return c.Status(fiber.StatusForbidden).End()
@@ -110,18 +108,22 @@ func (h *ContentHandler) GetContentThumb(c fiber.Ctx) error {
 	lock.Lock()
 	defer lock.Unlock()
 
-	if _, err := os.Stat(thumbPath); err == nil {
-		c.Type("image/webp")
-		return c.SendFile(thumbPath)
+	if err := deleteStaleThumbnail(thumbPath, 12*time.Hour); err != nil {
+		// If we cannot clean stale cache keep going and re-generate.
+		fmt.Printf("failed to delete stale thumbnail %q: %v\n", thumbPath, err)
 	}
 
-	thumbBytes, err := utils.GenerateThumbnail(finalPath, thumbPath)
+	if _, err := os.Stat(thumbPath); err == nil {
+		c.Type("image/webp")
+		return serveFile(c, thumbPath)
+	}
+
+	filePath, err = utils.GenerateThumbnail(finalPath, thumbPath)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).SendString(fmt.Sprintf("thumbnail generation failed: %v", err))
 	}
 
-	c.Type("image/webp")
-	return c.Send(thumbBytes)
+	return serveFile(c, filePath)
 }
 
 func serveFile(c fiber.Ctx, finalPath string) error {
@@ -173,6 +175,22 @@ func shouldProxyImage(c fiber.Ctx, finalPath string, size int64) bool {
 
 	return utils.IsImage(ext) && isImageFileSize && hasTransformParams
 
+}
+
+func deleteStaleThumbnail(path string, maxAge time.Duration) error {
+	info, err := os.Stat(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
+	}
+
+	if time.Since(info.ModTime()) > maxAge {
+		return os.Remove(path)
+	}
+
+	return nil
 }
 
 func handleProxyImage(c fiber.Ctx, finalPath string) error {
