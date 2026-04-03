@@ -23,6 +23,8 @@ func main() {
 	pendingFilesManager := utils.NewPendingFilesManager()
 	pendingFilesManager.StartCleanup()
 	utils.FlushTempFilesWithRoot(env.ProjectRoot)
+	utils.StartVideoThumbnailCleanup(env.ProjectRoot)
+
 	// utils.StartFileCleanup()
 
 	flake := utils.NewFlake()

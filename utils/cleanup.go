@@ -127,6 +127,21 @@ func StartDeleteExpiredFiles(databaseService *database.DatabaseService) {
 	}()
 }
 
+func StartVideoThumbnailCleanup(root string) {
+	cacheDir := filepath.Join(root, "video-thumb-cache")
+	interval := 5 * time.Minute
+	maxAge := 12 * time.Hour
+
+	go func() {
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
+
+		for range ticker.C {
+			cleanupOldFiles(cacheDir, maxAge)
+		}
+	}()
+}
+
 func DeleteRecursiveEmpty(filePath string) error {
 	const stopAt = "public"
 
