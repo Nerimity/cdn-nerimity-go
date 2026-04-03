@@ -29,6 +29,15 @@ func IsMimeImage(mime string) bool {
 	}
 }
 
+func IsVideo(ext string) bool {
+	switch strings.ToLower(ext) {
+	case ".mp4", ".webm":
+		return true
+	default:
+		return false
+	}
+}
+
 func IsImage(ext string) bool {
 	switch strings.ToLower(ext) {
 	case ".webp", ".png", ".jpg", ".jpeg", ".gif":

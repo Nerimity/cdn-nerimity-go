@@ -59,8 +59,15 @@ func cleanupOldFiles(dir string, ageThreshold time.Duration) {
 // }
 
 func FlushTempFiles() {
-	dir := "temp"
+	FlushTempFilesWithRoot(".")
+}
 
+func FlushTempFilesWithRoot(root string) {
+	flushDir(filepath.Join(root, "temp"))
+	flushDir(filepath.Join(root, "video-thumb-cache"))
+}
+
+func flushDir(dir string) {
 	err := os.RemoveAll(dir)
 	if err != nil {
 		panic(err)

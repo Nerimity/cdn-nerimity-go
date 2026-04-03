@@ -22,7 +22,7 @@ func main() {
 
 	pendingFilesManager := utils.NewPendingFilesManager()
 	pendingFilesManager.StartCleanup()
-	utils.FlushTempFiles()
+	utils.FlushTempFilesWithRoot(env.ProjectRoot)
 	// utils.StartFileCleanup()
 
 	flake := utils.NewFlake()
@@ -81,6 +81,9 @@ func main() {
 	uploadHandler := handlers.NewUploadHandler(&handlers.UploadHandler{Env: env, Flake: flake, Jwt: jwt, PendingFilesManager: pendingFilesManager})
 	internalHandler := handlers.NewInternalHandler(&handlers.InternalHandler{Env: env, Jwt: jwt, PendingFileManager: pendingFilesManager, Database: database})
 	proxyHandler := handlers.NewProxyHandler(&handlers.ProxyHandler{Env: env})
+
+	// Video thumbnails
+	app.Get("/attachments/*/thumb", contentHandler.GetContentThumb)
 
 	app.Get("/attachments/*", contentHandler.GetContent)
 	app.Get("/emojis/*", contentHandler.GetContent)

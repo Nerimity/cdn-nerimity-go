@@ -1,15 +1,20 @@
 package handlers
 
 import (
-	"cdn_nerimity_go/config"
-	"cdn_nerimity_go/security"
-	"cdn_nerimity_go/utils"
+	"crypto/sha256"
+	"encoding/hex"
+	"fmt"
 	"net/url"
 	"os"
 	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
+
+	"cdn_nerimity_go/config"
+	"cdn_nerimity_go/security"
+	"cdn_nerimity_go/utils"
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/gofiber/fiber/v3/middleware/proxy"
@@ -17,6 +22,20 @@ import (
 
 type ContentHandler struct {
 	Env *config.Config
+}
+
+var thumbMutexes sync.Map
+
+func obtainThumbMutex(key string) *sync.Mutex {
+	lockInterface, _ := thumbMutexes.LoadOrStore(key, &sync.Mutex{})
+	return lockInterface.(*sync.Mutex)
+}
+
+func thumbnailCachePath(projectRoot, finalPath string) string {
+	cacheDir := filepath.Join(projectRoot, "video-thumb-cache")
+	hash := sha256.Sum256([]byte(finalPath))
+	filename := hex.EncodeToString(hash[:]) + ".webp"
+	return filepath.Join(cacheDir, filename)
 }
 
 func NewContentHandler(context *ContentHandler) *ContentHandler {
@@ -53,6 +72,56 @@ func (h *ContentHandler) GetContent(c fiber.Ctx) error {
 	}
 
 	return serveFile(c, finalPath)
+}
+
+func (h *ContentHandler) GetContentThumb(c fiber.Ctx) error {
+	rawPath := c.Path() // "/attachments/xxx/thumb"
+	if !strings.HasSuffix(rawPath, "/thumb") {
+		return c.Status(fiber.StatusBadRequest).SendString("thumbnail endpoint requires /thumb suffix")
+	}
+
+	filePath := strings.TrimSuffix(rawPath, "/thumb")
+	finalPath, err := resolveSafePath(filePath)
+	if err != nil {
+		return c.Status(fiber.StatusForbidden).End()
+	}
+
+	if !strings.HasPrefix(finalPath, filepath.Clean("./public")) {
+		return c.Status(fiber.StatusForbidden).End()
+	}
+
+	// Check file size and existence
+	info, err := os.Stat(finalPath)
+	if err != nil || info.IsDir() {
+		return c.Status(fiber.StatusNotFound).End()
+	}
+
+	ext := strings.ToLower(filepath.Ext(finalPath))
+	if !utils.IsVideo(ext) {
+		return c.Status(fiber.StatusBadRequest).SendString("only video thumbnail extraction is supported")
+	}
+
+	thumbPath := thumbnailCachePath(h.Env.ProjectRoot, finalPath)
+	if err := os.MkdirAll(filepath.Dir(thumbPath), 0o755); err != nil {
+		return c.Status(fiber.StatusInternalServerError).SendString("could not create cache directory")
+	}
+
+	lock := obtainThumbMutex(thumbPath)
+	lock.Lock()
+	defer lock.Unlock()
+
+	if _, err := os.Stat(thumbPath); err == nil {
+		c.Type("image/webp")
+		return c.SendFile(thumbPath)
+	}
+
+	thumbBytes, err := utils.GenerateThumbnail(finalPath, thumbPath)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).SendString(fmt.Sprintf("thumbnail generation failed: %v", err))
+	}
+
+	c.Type("image/webp")
+	return c.Send(thumbBytes)
 }
 
 func serveFile(c fiber.Ctx, finalPath string) error {
