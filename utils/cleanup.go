@@ -35,8 +35,6 @@ func cleanupOldFiles(dir string, ageThreshold time.Duration) {
 			err := os.Remove(path)
 			if err != nil {
 				log.Printf("Error removing file %s: %v", path, err)
-			} else {
-				log.Printf("Removed file %s", path)
 			}
 		}
 	}
