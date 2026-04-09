@@ -7,22 +7,31 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type DatabaseService struct {
-	conn *pgx.Conn
+	pool *pgxpool.Pool
 }
 
 func NewDatabaseService(databaseUrl string) *DatabaseService {
-	conn, err := pgx.Connect(context.Background(), databaseUrl)
+	config, err := pgxpool.ParseConfig(databaseUrl)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Unable to connect to database: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Config error: %v\n", err)
+		os.Exit(1)
+	}
+
+	config.MaxConnLifetime = time.Hour
+	config.MaxConnIdleTime = 30 * time.Minute
+
+	pool, err := pgxpool.NewWithConfig(context.Background(), config)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Unable to create pool: %v\n", err)
 		os.Exit(1)
 	}
 
 	return &DatabaseService{
-		conn: conn,
+		pool: pool,
 	}
 }
 
@@ -36,7 +45,7 @@ func (h *DatabaseService) AddExpire(fileId int64, groupId int64) (time.Time, err
 		VALUES ($1, $2) 
 		RETURNING "createdAt"`
 
-	err := h.conn.QueryRow(context.Background(), query, strFileId, strGroupId).Scan(&createdAt)
+	err := h.pool.QueryRow(context.Background(), query, strFileId, strGroupId).Scan(&createdAt)
 	if err != nil {
 		return time.Time{}, err
 	}
@@ -57,7 +66,7 @@ func (h *DatabaseService) GetExpiredFiles() ([]ExpireRecord, error) {
 		WHERE "createdAt" <= NOW() - INTERVAL '24 hours'
 		LIMIT 100`
 
-	rows, err := h.conn.Query(context.Background(), query)
+	rows, err := h.pool.Query(context.Background(), query)
 	if err != nil {
 		return nil, err
 	}
@@ -101,6 +110,6 @@ func (h *DatabaseService) DeleteByFileIds(fileIds []int64) error {
 
 	query := `DELETE FROM "ExpireFile" WHERE "fileId" = ANY($1)`
 
-	_, err := h.conn.Exec(context.Background(), query, strFileIds)
+	_, err := h.pool.Exec(context.Background(), query, strFileIds)
 	return err
 }
