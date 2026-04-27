@@ -203,5 +203,10 @@ func handleProxyImage(c fiber.Ctx, finalPath string) error {
 	}
 	var proxyURL = utils.GenerateBasicImageProxyURL(utils.BasicImageProxyOptions{URL: finalPath, IsLocalURL: true, Static: static, Size: parsedSize})
 
-	return proxy.Do(c, proxyURL)
+	if err := proxy.Do(c, proxyURL); err != nil {
+		return err
+	}
+
+	c.Set("Access-Control-Allow-Origin", "*")
+	return nil
 }

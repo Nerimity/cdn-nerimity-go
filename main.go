@@ -51,20 +51,30 @@ func main() {
 		},
 	})
 
-
-
 	app.Use(func(c fiber.Ctx) error {
-			c.Set("Access-Control-Allow-Origin", "*")
+		origin := c.Get("Origin")
 
-			if c.Method() == fiber.MethodOptions {
-					c.Set("Access-Control-Allow-Headers", "Content-Type, Authorization, File-Name")
-					c.Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, PATCH, OPTIONS")
-					return c.SendStatus(fiber.StatusNoContent)
-			}
+		allowedOrigins := map[string]bool{
+			"https://nerimity.com":           true,
+			"http://local.nerimity.com:3000": true,
+			"https://latest.nerimity.com":    true,
+			"https://flutter.nerimity.com":   true,
+		}
 
-			return c.Next()
+		if origin != "" && allowedOrigins[origin] {
+			c.Set("Access-Control-Allow-Origin", origin)
+		} else {
+			c.Set("Access-Control-Allow-Origin", "https://nerimity.com")
+		}
+
+		if c.Method() == fiber.MethodOptions {
+			c.Set("Access-Control-Allow-Headers", "Content-Type, Authorization, File-Name")
+			c.Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, PATCH, OPTIONS")
+			return c.SendStatus(fiber.StatusNoContent)
+		}
+
+		return c.Next()
 	})
-
 
 	app.Get("/", func(c fiber.Ctx) error {
 		return c.SendString("Nerimity CDN Online.")
