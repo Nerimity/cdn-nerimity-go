@@ -42,11 +42,9 @@ func (h *ProxyHandler) GetImageDimensions(c fiber.Ctx) error {
 	if err != nil || !isValidScheme(parsed.Scheme) {
 		return c.Status(fiber.StatusBadRequest).SendString("Invalid URL")
 	}
-	t := time.Now()
 	if err := validateHost(parsed.Hostname()); err != nil {
 		return c.Status(fiber.StatusBadRequest).SendString("Blocked host")
 	}
-	log.Printf("validateHost: %v", time.Since(t))
 
 	client := &http.Client{
 		Timeout: requestTimeout,
@@ -59,12 +57,12 @@ func (h *ProxyHandler) GetImageDimensions(c fiber.Ctx) error {
 	}
 
 	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, rawURL, nil)
+	req.Header.Set("User-Agent", "Mozilla/5.0 (compatible; Nerimity/1.0)")
+
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).SendString("Request creation failed")
 	}
-	t0 := time.Now()
 	resp, err := client.Do(req)
-	log.Printf("http do: %v", time.Since(t0))
 
 	if err != nil {
 		return c.Status(fiber.StatusBadGateway).SendString("Fetch failed")
@@ -85,9 +83,7 @@ func (h *ProxyHandler) GetImageDimensions(c fiber.Ctx) error {
 	}
 	defer os.Remove(tmpFile.Name())
 	defer tmpFile.Close()
-	t1 := time.Now()
 	written, err := io.Copy(tmpFile, io.LimitReader(resp.Body, maxImageSize))
-	log.Printf("io.Copy: %v", time.Since(t1))
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).SendString("Download error")
 	}
@@ -95,10 +91,8 @@ func (h *ProxyHandler) GetImageDimensions(c fiber.Ctx) error {
 	if written >= maxImageSize {
 		return c.Status(fiber.StatusRequestEntityTooLarge).SendString("Image too large")
 	}
-	t2 := time.Now()
 
 	img, err := vips.NewImageFromFile(tmpFile.Name(), nil)
-	log.Printf("vips load: %v", time.Since(t2))
 
 	if err != nil {
 		log.Printf("Vips error: %v", err)
