@@ -42,10 +42,11 @@ func (h *ProxyHandler) GetImageDimensions(c fiber.Ctx) error {
 	if err != nil || !isValidScheme(parsed.Scheme) {
 		return c.Status(fiber.StatusBadRequest).SendString("Invalid URL")
 	}
-
+	t := time.Now()
 	if err := validateHost(parsed.Hostname()); err != nil {
 		return c.Status(fiber.StatusBadRequest).SendString("Blocked host")
 	}
+	log.Printf("validateHost: %v", time.Since(t))
 
 	client := &http.Client{
 		Timeout: requestTimeout,
