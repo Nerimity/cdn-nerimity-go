@@ -172,6 +172,7 @@ func handlePublicProxyImage(c fiber.Ctx, finalPath string) error {
 		return err
 	}
 
-	c.Set("Access-Control-Allow-Origin", "*")
+	// c.Set("Access-Control-Allow-Origin", "*")
+	utils.SetCorsHeader(c)
 	return nil
 }
